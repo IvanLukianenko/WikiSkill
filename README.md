@@ -136,12 +136,29 @@ where the traces live — not in CI):
 | `/wikiskill:validate <skill>` or `--baseline` / `-validate` | Gating & Rollback (§3.2.4, Eq. 4): accept iff score > R_best; CLI appends diff + outcome to skill-impact.md |
 | `/wikiskill:loop` / `-loop` | One full iteration of Algorithm 1, with the R_best = 1.0 early stop |
 | `/wikiskill:rollback <skill> [ts]` / `-rollback` | Skill-only rollback (Alg. 1 line 16; the wiki is retained) |
+| `/wikiskill:models [agent=model ...]` (Claude Code) | Per-project model choice for the evolution agents (see below) |
+
+### Choosing models for the evolution agents
+
+Each of the three agents can run on its own model — set it per project with,
+e.g., `/wikiskill:models evolver=opus consolidator=haiku` (`show` / `reset` to
+inspect or clear; values: `haiku`, `sonnet`, `opus`, `inherit`, or a full model
+ID). Under the hood the command writes override copies of the plugin agents
+into `.claude/agents/`, which take precedence, and records the intent in
+`agent_models` in the config.
+
+Guidance from the paper: keep **validator** on `inherit` — validation is a
+rollout of your everyday inference model (§3.2.4), so gating must measure what
+*that* model achieves with the skill. **evolver**/**consolidator** are the
+optimizer side, and §4.2.2 shows skills transfer across models (a stronger
+evolver can beat self-evolution) — so a strong evolver over a cheap daily
+model, or a budget consolidator, are both sound configurations.
 
 ## What's in the box
 
 ```
 .claude-plugin/plugin.json        plugin manifest (+ marketplace.json for /plugin marketplace add)
-commands/                         the 7 slash commands above
+commands/                         the 8 slash commands above
 agents/                           subagents adapting the paper's Appendix E prompts:
                                   wikiskill-consolidator (Wiki Maintainer, E.2),
                                   wikiskill-evolver (Skill Proposer, E.3),
