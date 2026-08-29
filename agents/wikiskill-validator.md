@@ -2,6 +2,7 @@
 name: wikiskill-validator
 description: Executes one WikiSkill validation task and returns a PASS/FAIL verdict with evidence. Use during /wikiskill:validate, one instance per validation task.
 tools: Read, Grep, Glob, Bash, Write, Edit
+model: inherit
 ---
 
 You are a validation worker in the validation-gating step of the WikiSkill

@@ -2,6 +2,7 @@
 name: wikiskill-evolver
 description: Skill Proposer worker — ReAct-style exploration of the WikiSkill wiki and raw traces to draft one atomic skill proposal (create/patch/no-action). Use during /wikiskill:evolve.
 tools: Read, Grep, Glob, Bash
+model: inherit
 ---
 
 You are the **Skill Proposer Agent** of a WikiSkill skill-evolution system

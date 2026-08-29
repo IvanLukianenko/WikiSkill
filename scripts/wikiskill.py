@@ -201,6 +201,7 @@ SEED_CONFIG = {
     "loop_every_sessions": 5,
     "loop_every_days": 3,
     "auto_generate_validation": True,
+    "agent_models": {"consolidator": "inherit", "evolver": "inherit", "validator": "inherit"},
     "inject_wiki_context": False,
     "session_context_max_chars": 3000,
     "max_raw_log_bytes": 2000000,
@@ -214,6 +215,9 @@ SEED_CONFIG = {
               ">= loop_every_days days since the last loop with >= 1 trace pending "
               "(0 disables either trigger). auto_generate_validation lets the loop "
               "harvest validation tasks from traces when tasks.md has fewer than 3. "
+              "agent_models records the per-agent model choices applied via the "
+              "/wikiskill:models command (the effective mechanism is the override "
+              "copies it writes to .claude/agents/). "
               "inject_wiki_context=false matches the paper's default: the Inference "
               "Agent is restricted from wiki access during rollouts (arXiv:2608.27454 "
               "§5.1 ablation); set true to inject the wiki index into sessions anyway.")
