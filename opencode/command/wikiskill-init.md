@@ -7,10 +7,14 @@ left to do manually:
 
 1. Run `python3 .opencode/wikiskill/wikiskill.py init`, then read
    `.opencode/wikiskill/METHODOLOGY.md`.
-2. Ask the user one short question (or default if they don't care):
-   automation mode — full auto (recommended) / suggest / manual. Apply it:
-   `python3 .wikiskill/bin/wikiskill.py config-set auto_loop '"auto"'`
-   (or `'"suggest"'` / `'"off"'`).
+2. Walk the user through every important setting in chat, each with a
+   one-line consequence and a recommended default (apply defaults if they
+   don't care): automation mode (auto recommended / suggest / manual), loop
+   cadence (5 sessions / 3 days recommended), evolver and consolidator
+   models, auto-harvesting (on), wiki-in-context (off, per the §5.1
+   ablation), skills_dir (.opencode/skill for opencode-native). Note the
+   validator always stays on the session model (§3.2.4). Apply choices via
+   `python3 .wikiskill/bin/wikiskill.py config-set <key> <value>`.
 3. Seed the validation suite: if `.wikiskill/validation/tasks.md` has no VT-*
    tasks, inspect the project's tooling (package.json scripts, pyproject,
    Makefile, CI configs) and append up to 2 `(auto-seeded at init)` tasks with

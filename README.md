@@ -59,11 +59,13 @@ Then, in each project where you want skills to evolve:
 /wikiskill:init
 ```
 
-Init is a **full zero-touch setup**: it creates the workspace, asks one
-question (automation mode + evolver model, with recommended defaults),
-seeds the validation suite from the project's own tooling (verified test/
-lint/build commands, as regression gates), and explains everything — after
-it, the loop runs itself and there is nothing to configure by hand.
+Init is a **full zero-touch setup**: it creates the workspace, walks you
+through every important setting in two short question rounds (automation
+mode, loop cadence, agent models, harvesting, wiki injection — each option
+with its consequence and a recommended default, auto-applied in headless
+runs), seeds the validation suite from the project's own tooling (verified
+test/lint/build commands, as regression gates), and explains everything —
+after it, the loop runs itself and there is nothing to configure by hand.
 
 Requires `python3` on PATH (stdlib only, no dependencies).
 
