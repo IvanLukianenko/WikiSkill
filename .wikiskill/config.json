@@ -1,0 +1,11 @@
+{
+  "skills_dir": ".claude/skills",
+  "inject_wiki_context": false,
+  "session_context_max_chars": 3000,
+  "max_raw_log_bytes": 2000000,
+  "sample_max_failing": 5,
+  "sample_max_passing": 3,
+  "trace_char_cap": 15000,
+  "notes": "skills_dir is relative to the project root (set to .opencode/skill for opencode-native skills). inject_wiki_context=false matches the paper's default: the Inference Agent is restricted from wiki access during rollouts (arXiv:2608.27454 \u00a75.1 ablation); set true to inject the wiki index into new sessions anyway.",
+  "auto_loop": "auto"
+}

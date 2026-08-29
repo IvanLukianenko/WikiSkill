@@ -636,6 +636,12 @@ def cmd_loop_due(args):
 # ---------------------------------------------------------------- main
 
 def main():
+    # Piping output through `head` must not produce a BrokenPipeError traceback.
+    try:
+        import signal
+        signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+    except (ImportError, AttributeError, ValueError):
+        pass
     ap = argparse.ArgumentParser(prog="wikiskill.py", description=__doc__)
     sub = ap.add_subparsers(dest="cmd", required=True)
 
