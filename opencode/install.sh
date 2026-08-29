@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Install WikiSkills into a project for opencode.
+# Install WikiSkill into a project for opencode.
 #
 # Usage:  opencode/install.sh [target-project-dir]   (default: current directory)
 #
-# Copies the wikiskills-* commands, the trace-capture plugin, the CLI, and the
+# Copies the wikiskill-* commands, the trace-capture plugin, the CLI, and the
 # methodology reference into <target>/.opencode/, then initializes the
-# .wikiskills workspace.
+# .wikiskill workspace.
 
 set -euo pipefail
 
@@ -17,25 +17,25 @@ if ! command -v python3 >/dev/null 2>&1; then
   exit 1
 fi
 
-mkdir -p "$TARGET/.opencode/command" "$TARGET/.opencode/plugin" "$TARGET/.opencode/wikiskills"
+mkdir -p "$TARGET/.opencode/command" "$TARGET/.opencode/plugin" "$TARGET/.opencode/wikiskill"
 
-cp "$REPO_DIR"/opencode/command/wikiskills-*.md "$TARGET/.opencode/command/"
-cp "$REPO_DIR"/opencode/plugin/wikiskills.js "$TARGET/.opencode/plugin/"
-cp "$REPO_DIR"/scripts/wikiskills.py "$TARGET/.opencode/wikiskills/wikiskills.py"
-cp "$REPO_DIR"/skills/wikiskills-methodology/SKILL.md "$TARGET/.opencode/wikiskills/METHODOLOGY.md"
+cp "$REPO_DIR"/opencode/command/wikiskill-*.md "$TARGET/.opencode/command/"
+cp "$REPO_DIR"/opencode/plugin/wikiskill.js "$TARGET/.opencode/plugin/"
+cp "$REPO_DIR"/scripts/wikiskill.py "$TARGET/.opencode/wikiskill/wikiskill.py"
+cp "$REPO_DIR"/skills/wikiskill-methodology/SKILL.md "$TARGET/.opencode/wikiskill/METHODOLOGY.md"
 
-python3 "$TARGET/.opencode/wikiskills/wikiskills.py" init --dir "$TARGET"
+python3 "$TARGET/.opencode/wikiskill/wikiskill.py" init --dir "$TARGET"
 
 cat <<EOF
 
-WikiSkills installed for opencode in $TARGET
-  commands:  /wikiskills-init /wikiskills-status /wikiskills-consolidate
-             /wikiskills-evolve /wikiskills-validate /wikiskills-loop /wikiskills-rollback
-  plugin:    .opencode/plugin/wikiskills.js (captures traces on session.idle)
+WikiSkill installed for opencode in $TARGET
+  commands:  /wikiskill-init /wikiskill-status /wikiskill-consolidate
+             /wikiskill-evolve /wikiskill-validate /wikiskill-loop /wikiskill-rollback
+  plugin:    .opencode/plugin/wikiskill.js (captures traces on session.idle)
 
-Next: add validation tasks to .wikiskills/validation/tasks.md, work normally,
-then run /wikiskills-loop periodically.
+Next: add validation tasks to .wikiskill/validation/tasks.md, work normally,
+then run /wikiskill-loop periodically.
 
 Tip: opencode also reads Claude-format skills; set "skills_dir" in
-.wikiskills/config.json if you keep skills somewhere other than .claude/skills.
+.wikiskill/config.json if you keep skills somewhere other than .claude/skills.
 EOF

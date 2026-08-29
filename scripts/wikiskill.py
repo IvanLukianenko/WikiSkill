@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""WikiSkills CLI — deterministic outer-loop harness for the WikiSkill framework.
+"""WikiSkill CLI — deterministic outer-loop harness for the WikiSkill framework.
 
 Implements the workspace layout and programmatic bookkeeping from "WikiSkill:
 Compiling Agent Experience into Persistent Knowledge for Skill Evolution"
@@ -27,7 +27,7 @@ import shutil
 import sys
 from datetime import datetime, timezone
 
-WIKISKILLS_DIR = ".wikiskills"
+WIKISKILL_DIR = ".wikiskill"
 DIFF_MAX_LINES = 400
 
 
@@ -44,7 +44,7 @@ def now_stamp():
 def find_root(start=None):
     d = os.path.abspath(start or os.getcwd())
     while True:
-        candidate = os.path.join(d, WIKISKILLS_DIR)
+        candidate = os.path.join(d, WIKISKILL_DIR)
         if os.path.isdir(candidate):
             return candidate
         parent = os.path.dirname(d)
@@ -56,8 +56,8 @@ def find_root(start=None):
 def require_root():
     root = find_root()
     if not root:
-        print("error: no .wikiskills directory found. Run `wikiskills.py init` "
-              "(or the /wikiskills:init command) in the project root first.",
+        print("error: no .wikiskill directory found. Run `wikiskill.py init` "
+              "(or the /wikiskill:init command) in the project root first.",
               file=sys.stderr)
         sys.exit(2)
     return root
@@ -120,7 +120,7 @@ without reading the full page.
 
 ## Patterns
 
-_None yet. Patterns are added by the Wiki Maintainer during /wikiskills:consolidate._
+_None yet. Patterns are added by the Wiki Maintainer during /wikiskill:consolidate._
 """
 
 SEED_LOG = """# Evolution Log
@@ -145,7 +145,7 @@ Consult this BEFORE proposing a skill change — do not repeat rejected proposal
 ---
 """
 
-SEED_TASKS = """# WikiSkills Validation Tasks (D_val)
+SEED_TASKS = """# WikiSkill Validation Tasks (D_val)
 
 This suite plays the role of the validation split in the WikiSkill framework
 (arXiv:2608.27454): each candidate skill update is accepted only if the pass
@@ -159,7 +159,7 @@ Format — one task per section:
 - **Success criteria:** <objectively checkable outcome, e.g. "tests in X pass", "output contains Y", "file Z compiles">
 - **Cleanup:** <how to undo any side effects, or "none">
 
-_Add your first task above. With no tasks defined, /wikiskills:validate
+_Add your first task above. With no tasks defined, /wikiskill:validate
 falls back to a self-review of the skill diff instead of hard gating._
 """
 
@@ -181,7 +181,7 @@ SEED_CONFIG = {
 
 def cmd_init(args):
     project = os.path.abspath(args.dir or os.getcwd())
-    root = os.path.join(project, WIKISKILLS_DIR)
+    root = os.path.join(project, WIKISKILL_DIR)
     created = not os.path.isdir(root)
     for sub in (os.path.join("raw", "traces"), os.path.join("wiki", "patterns"),
                 "archive", "validation", "bin"):
@@ -207,24 +207,24 @@ def cmd_init(args):
 
     try:
         self_path = os.path.abspath(__file__)
-        dest = os.path.join(root, "bin", "wikiskills.py")
+        dest = os.path.join(root, "bin", "wikiskill.py")
         if os.path.realpath(self_path) != os.path.realpath(dest):
             shutil.copy2(self_path, dest)
     except OSError as e:
-        print(f"warning: could not copy CLI into .wikiskills/bin: {e}", file=sys.stderr)
+        print(f"warning: could not copy CLI into .wikiskill/bin: {e}", file=sys.stderr)
 
     print(f"{'Initialized' if created else 'Refreshed'} WikiSkill workspace at {root}")
     print("Three-layer layout (arXiv:2608.27454):")
-    print("  .wikiskills/raw/traces/         Raw Layer — immutable execution traces (git-ignored)")
-    print("  .wikiskills/wiki/               Wiki Layer — compounding, never reset:")
+    print("  .wikiskill/raw/traces/         Raw Layer — immutable execution traces (git-ignored)")
+    print("  .wikiskill/wiki/               Wiki Layer — compounding, never reset:")
     print("    index.md                        pattern catalog (PROBLEM + ROOT CAUSE + FIX per line)")
     print("    log.md                          chronological evolution log")
     print("    skill-impact.md                 proposal diffs + gating outcomes (harness-written)")
     print("    patterns/                       one page per failure/success pattern")
     print(f"  Skill Layer: {skills_dir(root)}   (each skill: SKILL.md + PURPOSE.md)")
-    print("  .wikiskills/validation/tasks.md D_val — validation suite for gating")
-    print("  .wikiskills/archive/            skill snapshots for rollback")
-    print("  .wikiskills/bin/wikiskills.py   project-local copy of this CLI")
+    print("  .wikiskill/validation/tasks.md D_val — validation suite for gating")
+    print("  .wikiskill/archive/            skill snapshots for rollback")
+    print("  .wikiskill/bin/wikiskill.py   project-local copy of this CLI")
 
 
 # ---------------------------------------------------------------- traces
@@ -526,7 +526,7 @@ def cmd_record_validation(args):
     else:
         print(f"REJECTED: '{args.skill}' scored {args.passed}/{args.total} ({score:.2f}) "
               f"<= R_best {best:.2f}. Roll back now: "
-              f"`python3 .wikiskills/bin/wikiskills.py rollback {args.skill}`. "
+              f"`python3 .wikiskill/bin/wikiskill.py rollback {args.skill}`. "
               f"The wiki (including this recorded outcome) is retained.")
     print(f"skill-impact.md updated; iteration advanced to {iteration + 1}.")
 
@@ -536,8 +536,8 @@ def cmd_record_validation(args):
 def cmd_status(args):
     root = find_root()
     if not root:
-        print("WikiSkills: not initialized here. Run /wikiskills:init "
-              "(or `python3 wikiskills.py init`).")
+        print("WikiSkill: not initialized here. Run /wikiskill:init "
+              "(or `python3 wikiskill.py init`).")
         return
     state = load_state(root)
     traces = list(iter_traces(root))
@@ -572,10 +572,10 @@ def cmd_status(args):
 # ---------------------------------------------------------------- main
 
 def main():
-    ap = argparse.ArgumentParser(prog="wikiskills.py", description=__doc__)
+    ap = argparse.ArgumentParser(prog="wikiskill.py", description=__doc__)
     sub = ap.add_subparsers(dest="cmd", required=True)
 
-    p = sub.add_parser("init", help="initialize the .wikiskills workspace in a project")
+    p = sub.add_parser("init", help="initialize the .wikiskill workspace in a project")
     p.add_argument("--dir", help="project root (default: cwd)")
     p.set_defaults(fn=cmd_init)
 

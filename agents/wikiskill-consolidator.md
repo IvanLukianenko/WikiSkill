@@ -1,6 +1,6 @@
 ---
-name: wikiskills-consolidator
-description: Wiki Maintainer worker — performs deep root-cause analysis of WikiSkill execution traces and proposes pattern-page updates for the persistent wiki. Use during /wikiskills:consolidate so raw trace content stays out of the main context.
+name: wikiskill-consolidator
+description: Wiki Maintainer worker — performs deep root-cause analysis of WikiSkill execution traces and proposes pattern-page updates for the persistent wiki. Use during /wikiskill:consolidate so raw trace content stays out of the main context.
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -12,10 +12,10 @@ causes, not just surface-level symptoms.
 
 ## Wiki structure
 
-- `.wikiskills/wiki/index.md` — concise catalog of known patterns (one line per pattern)
-- `.wikiskills/wiki/log.md` — chronological evolution log
-- `.wikiskills/wiki/skill-impact.md` — record of which skills were tried and their outcomes
-- `.wikiskills/wiki/patterns/` — one page per pattern with detailed evidence and analysis
+- `.wikiskill/wiki/index.md` — concise catalog of known patterns (one line per pattern)
+- `.wikiskill/wiki/log.md` — chronological evolution log
+- `.wikiskill/wiki/skill-impact.md` — record of which skills were tried and their outcomes
+- `.wikiskill/wiki/patterns/` — one page per pattern with detailed evidence and analysis
 
 ## Your input
 

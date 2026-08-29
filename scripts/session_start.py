@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""WikiSkills SessionStart hook — loop status nudge (and optional wiki injection).
+"""WikiSkill SessionStart hook — loop status nudge (and optional wiki injection).
 
 By default this injects only a short status note (pending traces, loop hints).
 The wiki index is NOT injected: in the WikiSkill framework the Inference Agent
@@ -8,9 +8,9 @@ is restricted from Wiki Layer access during rollouts — the paper's ablation
 less informative and degrades final skill quality. Skills (the Skill Layer)
 reach the agent through the normal skill mechanism instead.
 
-Set "inject_wiki_context": true in .wikiskills/config.json to inject the wiki
+Set "inject_wiki_context": true in .wikiskill/config.json to inject the wiki
 index anyway (trading paper-faithful evolution for ambient knowledge).
-No-ops when the project has no .wikiskills workspace.
+No-ops when the project has no .wikiskill workspace.
 """
 
 import json
@@ -21,7 +21,7 @@ import sys
 def find_root(start):
     d = os.path.abspath(start or os.getcwd())
     while True:
-        candidate = os.path.join(d, ".wikiskills")
+        candidate = os.path.join(d, ".wikiskill")
         if os.path.isdir(candidate):
             return candidate
         parent = os.path.dirname(d)
@@ -63,18 +63,18 @@ def main():
                     failing += 1
 
     lines = [
-        "# WikiSkills (auto-injected status)",
+        "# WikiSkill (auto-injected status)",
         "",
         "This project runs the WikiSkill evolution loop (arXiv:2608.27454): sessions",
-        "are traced into `.wikiskills/raw/`, consolidated into the persistent wiki, and",
-        "used to evolve validated skills. Work normally; do not read `.wikiskills/wiki/`",
+        "are traced into `.wikiskill/raw/`, consolidated into the persistent wiki, and",
+        "used to evolve validated skills. Work normally; do not read `.wikiskill/wiki/`",
         "during ordinary tasks — the framework restricts the inference agent from wiki",
         "access so that traces stay informative for skill evolution.",
     ]
     if pending:
         lines += ["", f"{pending} trace(s) pending consolidation ({failing} with errors). "
-                      "If the user is between tasks, suggest /wikiskills:loop "
-                      "(or /wikiskills:consolidate)."]
+                      "If the user is between tasks, suggest /wikiskill:loop "
+                      "(or /wikiskill:consolidate)."]
 
     if cfg.get("inject_wiki_context"):
         max_chars = int(cfg.get("session_context_max_chars", 3000))
@@ -85,7 +85,7 @@ def main():
         except OSError:
             pass
         if len(index) > max_chars:
-            index = index[:max_chars] + "\n…(truncated — read .wikiskills/wiki/index.md for the rest)"
+            index = index[:max_chars] + "\n…(truncated — read .wikiskill/wiki/index.md for the rest)"
         if index:
             lines += ["", "---", "",
                       "Wiki index (inject_wiki_context is enabled; note this deviates "

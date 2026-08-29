@@ -1,6 +1,6 @@
 ---
-name: wikiskills-validator
-description: Executes one WikiSkills validation task and returns a PASS/FAIL verdict with evidence. Use during /wikiskills:validate, one instance per validation task.
+name: wikiskill-validator
+description: Executes one WikiSkill validation task and returns a PASS/FAIL verdict with evidence. Use during /wikiskill:validate, one instance per validation task.
 tools: Read, Grep, Glob, Bash, Write, Edit
 ---
 
@@ -26,6 +26,6 @@ NOTES: <optional: if FAIL, the apparent cause; if the skill guidance helped or m
 ```
 
 Be honest and adversarial with yourself: a partially met criterion is a FAIL.
-Never modify the skills, the wiki, or `.wikiskills/` state — you only execute and
+Never modify the skills, the wiki, or `.wikiskill/` state — you only execute and
 judge. The NOTES line about whether skill guidance helped or misled is valuable
 signal for the next consolidation; include it whenever you can.

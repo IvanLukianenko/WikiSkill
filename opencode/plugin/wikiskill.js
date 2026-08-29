@@ -1,14 +1,14 @@
 /**
- * WikiSkills plugin for opencode — Raw Layer trace capture for the WikiSkill
+ * WikiSkill plugin for opencode — Raw Layer trace capture for the WikiSkill
  * framework (arXiv:2608.27454 §3.1).
  *
- * On session.idle, writes into .wikiskills/raw/traces/ (same schema as the
+ * On session.idle, writes into .wikiskill/raw/traces/ (same schema as the
  * Claude Code hook, so consolidate/evolve/validate work identically):
  *   trace-<session>.json       compact digest
  *   trace-<session>.log.jsonl  raw message log (capped), for deep root-cause
  *                              analysis by the Wiki Maintainer / Skill Proposer
  *
- * No-ops until the project has a .wikiskills/ workspace (run wikiskills-init).
+ * No-ops until the project has a .wikiskill/ workspace (run wikiskill-init).
  * Install: copy into .opencode/plugin/ (opencode/install.sh does this).
  */
 
@@ -28,7 +28,7 @@ const clip = (s, n = MAX_TEXT) => {
 const findRoot = (start) => {
   let d = path.resolve(start || process.cwd())
   for (;;) {
-    const candidate = path.join(d, ".wikiskills")
+    const candidate = path.join(d, ".wikiskill")
     if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) return candidate
     const parent = path.dirname(d)
     if (parent === d) return null
@@ -44,7 +44,7 @@ const readJson = (file) => {
   }
 }
 
-export const WikiSkillsPlugin = async ({ client, directory, worktree }) => {
+export const WikiSkillPlugin = async ({ client, directory, worktree }) => {
   const projectDir = worktree || directory || process.cwd()
 
   const captureSession = async (sessionID) => {
