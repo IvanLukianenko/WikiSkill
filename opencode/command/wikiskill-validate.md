@@ -24,9 +24,11 @@ run the suite in `.wikiskill/validation/tasks.md` with current skills, then
    line to its PURPOSE.md. **REJECTED** (ties included) → roll back now:
    `python3 .wikiskill/bin/wikiskill.py rollback <name>` — never revert wiki
    changes; the wiki is retained by design.
-4. No VT-* tasks defined → soft-gate: diff the skill vs. its latest snapshot in
+4. No VT-* tasks defined → first try harvesting 1–3 tasks from consolidated
+   traces (per `/wikiskill-consolidate` step 6, if `auto_generate_validation` is
+   enabled) and gate against them; only when no trace yields an objectively
+   checkable task, soft-gate: diff the skill vs. its latest snapshot in
    `.wikiskill/archive/<name>/`, adversarially self-review, fix findings, record
-   `--passed 1 --total 1 --note "soft review"`, and remind the user to add real
-   tasks.
+   `--passed 1 --total 1 --note "soft review"`.
 
 Finish with score vs. R_best, verdict, and what happened to the skill.

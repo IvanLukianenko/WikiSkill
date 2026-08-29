@@ -94,8 +94,37 @@ def state_path(root):
 
 
 def default_state():
-    return {"version": 2, "created": now_iso(), "iteration": 0,
+    now = now_iso()
+    return {"version": 2, "created": now, "iteration": 0, "last_loop_at": now,
             "best_score": None, "skills": {}, "log": []}
+
+
+def parse_iso(s):
+    try:
+        return datetime.strptime(s, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    except (TypeError, ValueError):
+        return None
+
+
+def loop_due(root):
+    """Return (due, reasons, pending) for the auto-loop trigger."""
+    cfg = load_config(root)
+    state = load_state(root)
+    mode = str(cfg.get("auto_loop", "suggest")).lower()
+    pending = sum(1 for _, d in iter_traces(root) if not d.get("consolidated"))
+    if mode not in ("suggest", "auto") or pending == 0:
+        return False, [], pending
+    reasons = []
+    every_sessions = int(cfg.get("loop_every_sessions", 5) or 0)
+    if every_sessions > 0 and pending >= every_sessions:
+        reasons.append(f"{pending} session trace(s) pending (threshold {every_sessions})")
+    every_days = float(cfg.get("loop_every_days", 3) or 0)
+    last = parse_iso(state.get("last_loop_at") or state.get("created"))
+    if every_days > 0 and last is not None:
+        days = (datetime.now(timezone.utc) - last).total_seconds() / 86400
+        if days >= every_days:
+            reasons.append(f"{days:.1f} day(s) since the last loop (threshold {every_days:g})")
+    return bool(reasons), reasons, pending
 
 
 def load_state(root):
@@ -159,12 +188,19 @@ Format — one task per section:
 - **Success criteria:** <objectively checkable outcome, e.g. "tests in X pass", "output contains Y", "file Z compiles">
 - **Cleanup:** <how to undo any side effects, or "none">
 
-_Add your first task above. With no tasks defined, /wikiskill:validate
-falls back to a self-review of the skill diff instead of hard gating._
+_Tasks can be authored by hand or harvested automatically by the loop from
+representative session traces (auto_generate_validation in config.json;
+harvested tasks are marked "(auto-generated)"). With no tasks defined,
+/wikiskill:validate falls back to a self-review of the skill diff instead of
+hard gating._
 """
 
 SEED_CONFIG = {
     "skills_dir": ".claude/skills",
+    "auto_loop": "suggest",
+    "loop_every_sessions": 5,
+    "loop_every_days": 3,
+    "auto_generate_validation": True,
     "inject_wiki_context": False,
     "session_context_max_chars": 3000,
     "max_raw_log_bytes": 2000000,
@@ -172,10 +208,15 @@ SEED_CONFIG = {
     "sample_max_passing": 3,
     "trace_char_cap": 15000,
     "notes": ("skills_dir is relative to the project root (set to .opencode/skill for "
-              "opencode-native skills). inject_wiki_context=false matches the paper's "
-              "default: the Inference Agent is restricted from wiki access during "
-              "rollouts (arXiv:2608.27454 §5.1 ablation); set true to inject the wiki "
-              "index into new sessions anyway.")
+              "opencode-native skills). auto_loop: 'suggest' nudges at session start "
+              "when a loop is due, 'auto' runs the loop after the session's current "
+              "task, 'off' disables; due = pending traces >= loop_every_sessions, OR "
+              ">= loop_every_days days since the last loop with >= 1 trace pending "
+              "(0 disables either trigger). auto_generate_validation lets the loop "
+              "harvest validation tasks from traces when tasks.md has fewer than 3. "
+              "inject_wiki_context=false matches the paper's default: the Inference "
+              "Agent is restricted from wiki access during rollouts (arXiv:2608.27454 "
+              "§5.1 ablation); set true to inject the wiki index into sessions anyway.")
 }
 
 
@@ -312,6 +353,7 @@ def cmd_mark_consolidated(args):
             save_json(path, data)
             n += 1
     state = load_state(root)
+    state["last_loop_at"] = now_iso()
     log_event(state, "consolidate", {"traces": n})
     save_json(state_path(root), state)
     print(f"marked {n} trace(s) consolidated")
@@ -465,6 +507,7 @@ def cmd_record_validation(args):
     results = os.path.join(root, "validation", "results.jsonl")
     os.makedirs(os.path.dirname(results), exist_ok=True)
 
+    state["last_loop_at"] = now_iso()
     if args.baseline:
         state["best_score"] = score
         entry["baseline"] = True
@@ -551,7 +594,14 @@ def cmd_status(args):
     best = state.get("best_score")
     print(f"WikiSkill workspace: {root}")
     print(f"  iteration: {state.get('iteration', 0)}   "
-          f"R_best: {'not baselined yet' if best is None else f'{best:.2f}'}")
+          f"R_best: {'not baselined yet' if best is None else f'{best:.2f}'}   "
+          f"last loop: {state.get('last_loop_at', 'never')}")
+    cfg = load_config(root)
+    due, reasons, _p = loop_due(root)
+    print(f"  auto-loop: mode={cfg.get('auto_loop', 'suggest')} "
+          f"every {cfg.get('loop_every_sessions', 5)} session(s) / "
+          f"{cfg.get('loop_every_days', 3)} day(s) — "
+          f"{'DUE: ' + '; '.join(reasons) if due else 'not due'}")
     print(f"  raw:     {len(traces)} trace(s) captured, {len(pending)} pending "
           f"({sum(1 for t in pending if is_failing(t))} failing / "
           f"{sum(1 for t in pending if not is_failing(t))} passing)")
@@ -569,6 +619,16 @@ def cmd_status(args):
             print(f"    {e['ts']}  {e['event']}  {json.dumps(e['detail'], ensure_ascii=False)[:100]}")
 
 
+def cmd_loop_due(args):
+    root = require_root()
+    due, reasons, pending = loop_due(root)
+    if due:
+        print("DUE: " + "; ".join(reasons))
+        sys.exit(0)
+    print(f"not due ({pending} trace(s) pending)")
+    sys.exit(2)
+
+
 # ---------------------------------------------------------------- main
 
 def main():
@@ -581,6 +641,11 @@ def main():
 
     p = sub.add_parser("status", help="summarize workspace state")
     p.set_defaults(fn=cmd_status)
+
+    p = sub.add_parser("loop-due",
+                       help="check whether an evolution loop is due "
+                            "(exit 0 = due, 2 = not due; for cron scripting)")
+    p.set_defaults(fn=cmd_loop_due)
 
     p = sub.add_parser("pending", help="list traces awaiting consolidation")
     p.add_argument("--paths", action="store_true", help="print digest file paths only")
