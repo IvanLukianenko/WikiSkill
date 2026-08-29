@@ -613,6 +613,16 @@ def cmd_status(args):
     print(f"  skills:  {len(skills)} in {sdir}: {', '.join(skills) if skills else '(none)'}")
     for name, rec in sorted(state.get("skills", {}).items()):
         print(f"  skill '{name}': {len(rec.get('snapshots', []))} snapshot(s)")
+    ts = state.get("token_stats") or {}
+    if ts.get("entries"):
+        by_phase = ", ".join(f"{k}={v:,}" for k, v in sorted(ts.get("by_phase", {}).items()))
+        print(f"  evolution cost: {ts.get('total', 0):,} measured token(s) "
+              f"across {ts['entries']} recorded run(s) ({by_phase})")
+    session_tokens = sum(
+        (d.get("tokens") or {}).get("total", 0) for _, d in traces)
+    if session_tokens:
+        print(f"  traced sessions total: {session_tokens:,} token(s) "
+              f"(in+out, from transcripts; cache reads excluded)")
     if best is not None and best >= 1.0:
         print("  NOTE: R_best is 1.0 — evolution is early-stopped until harder "
               "validation tasks are added.")
@@ -621,6 +631,87 @@ def cmd_status(args):
         print("  recent events:")
         for e in log[-5:]:
             print(f"    {e['ts']}  {e['event']}  {json.dumps(e['detail'], ensure_ascii=False)[:100]}")
+
+
+GUIDE = """\
+WIKISKILL — HOW IT WORKS
+========================
+Implements "WikiSkill: Compiling Agent Experience into Persistent Knowledge
+for Skill Evolution" (arXiv:2608.27454): your agent gets better at THIS
+project over time, safely, by turning session experience into validated
+skills.
+
+THE THREE LAYERS (never shortcut across them)
+  1. Raw Layer      .wikiskill/raw/traces/   Every session is auto-captured by
+     hooks as a digest + raw log. Immutable, git-ignored, disposable.
+  2. Wiki Layer     .wikiskill/wiki/         Durable knowledge distilled from
+     traces: patterns/ (one page per failure/success pattern with root cause
+     and fix), index.md (catalog), log.md (evolution journal), skill-impact.md
+     (every proposal's diff + validation outcome, written by this CLI).
+     Compounds forever — NEVER rolled back. Commit it to git.
+  3. Skill Layer    .claude/skills/          Executable skills (SKILL.md +
+     PURPOSE.md). Snapshotted before every change; kept only if validation
+     improves; rolled back otherwise.
+
+ONE EVOLUTION ITERATION (/wikiskill:loop = Algorithm 1)
+  consolidate  Wiki Maintainer distills sampled traces (<=5 failing +
+               <=3 passing) into wiki patterns; harvests validation tasks
+               from real sessions while the suite has < 3.
+  evolve       Skill Proposer reads wiki + skill-impact + traces, makes ONE
+               atomic change: create / patch / honest no-action. Never
+               repeats a rejected diff.
+  validate     The task suite (.wikiskill/validation/tasks.md) runs via
+               validator agents. Accept iff score STRICTLY beats R_best;
+               otherwise automatic rollback. R_best = 1.0 => early stop
+               until harder tasks exist. The wiki survives either outcome.
+
+AUTOMATION (config.json)
+  auto_loop            "suggest" (default) nudges when a loop is due;
+                       "auto" runs the loop after your current task; "off".
+  loop_every_sessions  due when >= N traces pending (default 5).
+  loop_every_days      due when >= D days since last loop, >= 1 pending (3).
+  auto_generate_validation  harvest tasks from traces (default true).
+  agent_models         set via /wikiskill:models (evolver=opus etc.).
+  inject_wiki_context  false by default: the paper's ablation shows giving
+                       the working agent wiki access hurts skill evolution.
+  Cron option: `wikiskill.py loop-due && claude -p "/wikiskill:loop" ...`
+
+COMMANDS
+  /wikiskill:status | loop | consolidate | evolve [skill] |
+  /wikiskill:validate <skill>|--baseline | rollback <skill> [ts] |
+  /wikiskill:models [agent=model ...] | help
+
+TOKEN ACCOUNTING
+  Per-session usage is summed from the transcript into each trace digest;
+  measured evolution work (subagent runs during loop phases) is recorded via
+  `wikiskill.py record-tokens` into stats.jsonl. `status` shows totals, so
+  you always see what skill evolution costs.
+"""
+
+
+def cmd_guide(args):
+    print(GUIDE)
+
+
+def cmd_record_tokens(args):
+    root = require_root()
+    if args.tokens < 0:
+        print("error: --tokens must be >= 0", file=sys.stderr)
+        sys.exit(2)
+    entry = {"ts": now_iso(), "phase": args.phase, "tokens": args.tokens,
+             "note": args.note or ""}
+    stats_path = os.path.join(root, "stats.jsonl")
+    with open(stats_path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    state = load_state(root)
+    ts = state.setdefault("token_stats", {"total": 0, "by_phase": {}, "entries": 0})
+    ts["total"] += args.tokens
+    ts["by_phase"][args.phase] = ts["by_phase"].get(args.phase, 0) + args.tokens
+    ts["entries"] += 1
+    save_json(state_path(root), state)
+    by_phase = ", ".join(f"{k}={v:,}" for k, v in sorted(ts["by_phase"].items()))
+    print(f"recorded {args.tokens:,} token(s) for phase '{args.phase}'. "
+          f"Evolution total: {ts['total']:,} ({by_phase})")
 
 
 def cmd_loop_due(args):
@@ -651,6 +742,18 @@ def main():
 
     p = sub.add_parser("status", help="summarize workspace state")
     p.set_defaults(fn=cmd_status)
+
+    p = sub.add_parser("guide", help="print the detailed how-it-works guide")
+    p.set_defaults(fn=cmd_guide)
+
+    p = sub.add_parser("record-tokens",
+                       help="record measured token usage of an evolution phase "
+                            "into stats.jsonl and the running totals")
+    p.add_argument("--phase", required=True,
+                   choices=["consolidate", "evolve", "validate", "loop", "other"])
+    p.add_argument("--tokens", type=int, required=True)
+    p.add_argument("--note", default="")
+    p.set_defaults(fn=cmd_record_tokens)
 
     p = sub.add_parser("loop-due",
                        help="check whether an evolution loop is due "

@@ -27,6 +27,7 @@ Workflow (in this order — read the wiki FIRST):
 7. Apply the change:
    - `SKILL.md`: YAML frontmatter (`name`, `description`), then sections **When to Apply**, **When NOT to Apply**, and **Instructions**. Focus on action patterns and concrete strategies; keep it concise and actionable.
    - `PURPOSE.md`: sections **Origin** (what motivated this skill, including any prior rejected attempt it learns from), **Patterns Addressed** (the wiki pattern pages it draws on), and **Evolution History** (dated one-liners per accepted change).
-8. Report the proposal (target skill, change summary, wiki patterns cited), then state that per validation gating the update is **provisional** and run — or tell the user to run — `/wikiskill:validate <name>`.
+8. If you delegated to the `wikiskill-evolver` agent, record its measured cost: `python3 .wikiskill/bin/wikiskill.py record-tokens --phase evolve --tokens <subagent_tokens from the Task result> --note "iteration <k>"`. Record only measured agent usage — never estimate.
+9. Report the proposal (target skill, change summary, wiki patterns cited), then state that per validation gating the update is **provisional** and run — or tell the user to run — `/wikiskill:validate <name>`.
 
 Honor the requested focus above if one was given, but the rejected-proposal rule still applies.

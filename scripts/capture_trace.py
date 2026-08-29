@@ -61,6 +61,7 @@ def text_of(content):
 def parse_transcript(path):
     user_requests, errors, tools = [], [], {}
     last_assistant = ""
+    tokens = {"input": 0, "output": 0, "cache_read": 0, "cache_creation": 0}
     with open(path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
@@ -74,6 +75,12 @@ def parse_transcript(path):
                 continue
             msg = rec.get("message") or {}
             role = msg.get("role")
+            usage = msg.get("usage")
+            if role == "assistant" and isinstance(usage, dict):
+                tokens["input"] += int(usage.get("input_tokens") or 0)
+                tokens["output"] += int(usage.get("output_tokens") or 0)
+                tokens["cache_read"] += int(usage.get("cache_read_input_tokens") or 0)
+                tokens["cache_creation"] += int(usage.get("cache_creation_input_tokens") or 0)
             content = msg.get("content")
             if isinstance(content, str):
                 if role == "user" and rec.get("type") == "user":
@@ -104,7 +111,8 @@ def parse_transcript(path):
                     tools[name] = tools.get(name, 0) + 1
                 elif kind == "tool_result" and item.get("is_error"):
                     errors.append(clip(text_of(item.get("content"))))
-    return user_requests, errors, tools, last_assistant
+    tokens["total"] = tokens["input"] + tokens["output"]
+    return user_requests, errors, tools, last_assistant, tokens
 
 
 def copy_raw_log(transcript, dest, max_bytes):
@@ -150,9 +158,10 @@ def main():
     transcript = payload.get("transcript_path")
 
     user_requests, errors, tools, last_assistant = [], [], {}, ""
+    tokens = {"input": 0, "output": 0, "cache_read": 0, "cache_creation": 0, "total": 0}
     if transcript and os.path.exists(transcript):
         try:
-            user_requests, errors, tools, last_assistant = parse_transcript(transcript)
+            user_requests, errors, tools, last_assistant, tokens = parse_transcript(transcript)
         except OSError:
             pass
 
@@ -186,6 +195,7 @@ def main():
         "transcript_path": transcript,
         "raw_log": raw_log if have_log else None,
         "user_requests": user_requests[-MAX_ITEMS:],
+        "tokens": tokens,
         "tools_used": tools,
         "errors": errors[-MAX_ITEMS:],
         "last_assistant_message": last_assistant,

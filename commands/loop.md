@@ -16,4 +16,4 @@ Execute one iteration 𝑘 of the WikiSkill evolution loop (arXiv:2608.27454, Al
 2. **Skill Proposal:** follow `/wikiskill:evolve` — one atomic proposal (create/patch), grounded in the wiki, never repeating a rejected diff from `skill-impact.md`, snapshot before applying. An honest **no action** ends the iteration here — report and stop; do not force a change.
 3. **Gating:** follow `/wikiskill:validate` for the skill touched in step 2 — run the suite, `record-validation` (which writes the diff and outcome to `wiki/skill-impact.md` and advances the iteration), and on REJECTED roll the skill back. The wiki is retained regardless of the outcome.
 
-End with a ≤10-line iteration report: iteration number, traces consolidated, patterns touched, the proposal (or no-action and why), validation score vs. R_best, and the gating outcome.
+End with a ≤10-line iteration report: iteration number, traces consolidated, patterns touched, the proposal (or no-action and why), validation score vs. R_best, the gating outcome, and the iteration's measured token cost (the phases' `record-tokens` entries — `status` shows the running total).
