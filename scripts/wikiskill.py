@@ -677,6 +677,8 @@ AUTOMATION (config.json)
   Cron option: `wikiskill.py loop-due && claude -p "/wikiskill:loop" ...`
 
 COMMANDS
+  /wikiskill:init      full zero-touch setup: workspace + automation prefs +
+                       validation suite seeded from the project's own tooling
   /wikiskill:status | loop | consolidate | evolve [skill] |
   /wikiskill:validate <skill>|--baseline | rollback <skill> [ts] |
   /wikiskill:models [agent=model ...] | help
@@ -691,6 +693,19 @@ TOKEN ACCOUNTING
 
 def cmd_guide(args):
     print(GUIDE)
+
+
+def cmd_config_set(args):
+    root = require_root()
+    path = os.path.join(root, "config.json")
+    cfg = load_json(path, {})
+    try:
+        value = json.loads(args.value)
+    except ValueError:
+        value = args.value  # plain string
+    cfg[args.key] = value
+    save_json(path, cfg)
+    print(f"config: {args.key} = {json.dumps(value, ensure_ascii=False)}")
 
 
 def cmd_record_tokens(args):
@@ -745,6 +760,12 @@ def main():
 
     p = sub.add_parser("guide", help="print the detailed how-it-works guide")
     p.set_defaults(fn=cmd_guide)
+
+    p = sub.add_parser("config-set", help="set one key in .wikiskill/config.json "
+                                          "(value parsed as JSON, else stored as string)")
+    p.add_argument("key")
+    p.add_argument("value")
+    p.set_defaults(fn=cmd_config_set)
 
     p = sub.add_parser("record-tokens",
                        help="record measured token usage of an evolution phase "

@@ -59,6 +59,12 @@ Then, in each project where you want skills to evolve:
 /wikiskill:init
 ```
 
+Init is a **full zero-touch setup**: it creates the workspace, asks one
+question (automation mode + evolver model, with recommended defaults),
+seeds the validation suite from the project's own tooling (verified test/
+lint/build commands, as regression gates), and explains everything — after
+it, the loop runs itself and there is nothing to configure by hand.
+
 Requires `python3` on PATH (stdlib only, no dependencies).
 
 ## Install — opencode
@@ -129,7 +135,7 @@ where the traces live — not in CI):
 
 | Command (Claude Code / opencode) | Paper component |
 |---|---|
-| `/wikiskill:init` / `/wikiskill-init` | Workspace initialization (S₀, W₀ = ∅; plugin is inert until then) |
+| `/wikiskill:init` / `/wikiskill-init` | Full zero-touch setup: workspace (S₀, W₀ = ∅), automation prefs, seeded validation suite |
 | `/wikiskill:status` / `-status` | Iteration k, R_best, pending traces, patterns, snapshots |
 | `/wikiskill:consolidate` / `-consolidate` | Wiki Maintainer (§3.2.2): stratified sample → pattern pages, index, log |
 | `/wikiskill:evolve [skill]` / `-evolve` | Skill Proposer (§3.2.3): ReAct exploration → one atomic create/patch/no-action |
