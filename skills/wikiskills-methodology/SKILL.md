@@ -1,80 +1,74 @@
 ---
 name: wikiskills-methodology
-description: The WikiSkill framework's rules for maintaining a persistent knowledge wiki and evolving skills from it (arXiv:2608.27454). Use whenever working inside a .wikiskills/ workspace — consolidating traces into wiki pages, writing or refining wiki entries, evolving skills from wiki knowledge, or gating skill updates on validation.
+description: The WikiSkill framework's rules for the three-layer workspace and evolution loop (arXiv:2608.27454). Use whenever working inside a .wikiskills/ workspace — consolidating traces into wiki patterns, proposing or applying skill updates, or running validation gating.
 ---
 
-# WikiSkills Methodology
+# WikiSkill Methodology
 
-This project maintains three separated layers (WikiSkill, arXiv:2608.27454).
-Keeping them separated is the point — do not shortcut across them:
+This project runs the WikiSkill evolution loop over three separated layers
+(arXiv:2608.27454, Figure 2). Keeping them separated is the point — never
+shortcut across them:
 
 | Layer | Location | Lifecycle |
 |---|---|---|
-| 1. Execution traces | `.wikiskills/traces/*.json` | Raw, disposable. Auto-captured by hooks. Marked consolidated after distillation. |
-| 2. Knowledge wiki | `.wikiskills/wiki/` | **Persistent. Never rolled back.** Grows by append/refine only. |
-| 3. Executable skills | `skills_dir` from `.wikiskills/config.json` (default `.claude/skills/`) | Versioned. Snapshot before every edit; gated on validation; rollback on regression. |
+| Raw | `.wikiskills/raw/traces/` | **Permanent, write once.** Auto-captured digests + raw logs. Marked consolidated, never edited or deleted. |
+| Wiki | `.wikiskills/wiki/` | **Compounding, never reset.** Grows by create/patch only; retained across all iterations regardless of skill gating. |
+| Skills | `skills_dir` from `.wikiskills/config.json` (default `.claude/skills/`) | **Reversible, conditional.** Snapshot before every change; accepted only if validation beats R_best; otherwise rolled back. |
 
-The flow is strictly `traces → wiki → skills`. Skills are grounded in the wiki,
-never directly in traces; the wiki is grounded in traces, never in speculation.
+One iteration = Inference rollouts (the user's normal sessions) → Wiki
+Maintenance → Skill Proposal → Apply → Validate → Gate (Algorithm 1). The
+inference agent is restricted from reading the wiki during ordinary work — the
+paper's ablation (§5.1) shows wiki access during rollouts degrades final skill
+quality.
 
-## Wiki page format
+## Wiki Layer structure
 
-One page per topic, kebab-case, under `.wikiskills/wiki/pages/`. Structure:
+- `wiki/index.md` — catalog, one line per pattern, exactly:
+  `- [pattern-name](patterns/pattern-name.md): PROBLEM + ROOT CAUSE + FIX in one or two sentences.`
+  Index quality is critical: it determines whether pattern pages get read.
+- `wiki/log.md` — chronological evolution log; the Wiki Maintainer appends one
+  entry per consolidation (iteration, findings, actions).
+- `wiki/skill-impact.md` — appended **programmatically by the CLI** at
+  `record-validation`: proposal diff, validation score, Accepted/Rejected.
+  Consult before proposing; never repeat a rejected diff. Do not edit by hand.
+- `wiki/patterns/<kebab-name>.md` — one page per pattern, 10–30 lines:
+  description; root cause (WHY, not just WHAT); exact command sequences from
+  traces; concrete solutions/workarounds; evidence lines per sighting
+  (`Evidence: Iter 2: session ab12cd | Iter 3: persists`). Document both
+  failure AND success patterns. Update existing pages instead of duplicating;
+  use minimal incremental edits. No secrets, ever.
 
-```markdown
-# <Topic title>
+## Skill Layer structure
 
-> One-line scope of this page.
+Each skill directory contains exactly two authored files:
 
-## Facts
-- **<Entry title>** — <1–3 sentence statement>. (evidence: 2, last: 2026-08-29)
+- `SKILL.md` — YAML frontmatter (`name`, `description`), then sections
+  **When to Apply**, **When NOT to Apply**, **Instructions**. Concrete action
+  patterns and strategies, not abstract advice (the paper's accepted skills use
+  rules like "Never return an item to its origin location", not "act
+  goal-directedly"). Concise: instructions that change behavior; supporting
+  knowledge stays in the wiki.
+- `PURPOSE.md` — maps the skill back to its motivating wiki patterns:
+  **Origin**, **Patterns Addressed**, **Evolution History** (dated line per
+  accepted change).
 
-## Pitfalls
-- **<Entry title>** — Symptom: <…>. Cause: <…>. Remedy: <…>. (evidence: 1, last: 2026-08-29)
+## Evolution rules (Skill Proposer)
 
-## Procedures
-- **<Entry title>** — 1) <step> 2) <step> 3) <step>. (evidence: 3, last: 2026-08-29)
+- Exactly ONE atomic proposal per iteration: create one skill, patch one skill,
+  or honestly no-action.
+- Read order: index → skill-impact (rejected diffs!) → relevant patterns →
+  existing skills → ≥4 raw traces (or all, if fewer).
+- Prefer patching a partially-correct skill over creating a new one; patches are
+  minimal targeted edits, not rewrites.
+- Snapshot first, always: `python3 .wikiskills/bin/wikiskills.py snapshot <name>`.
 
-## Preferences
-- **<Entry title>** — <what the user wants and when>. (evidence: 1, last: 2026-08-29)
-```
+## Gating and rollback (Eq. 4)
 
-Omit empty sections. Keep `.wikiskills/wiki/index.md` listing every page with a
-one-line description — the index is auto-injected into new sessions, so it must
-stay short and high-signal.
-
-## Consolidation rules (traces → wiki)
-
-- Extract only lessons that would change a future session's behavior. One-off
-  details, transient state, and secrets (tokens, keys, credentials) never enter the wiki.
-- **Refine over append**: if a lesson matches an existing entry, increment its
-  evidence counter, update `last:`, and generalize or correct the wording.
-- **Never delete**: an entry contradicted by new evidence is rewritten to state the
-  corrected knowledge (optionally noting "supersedes earlier belief that …").
-- Generalize past the incident: "pin package X below 3.0 because its 3.x API broke
-  module Y" beats "got an ImportError on Tuesday".
-
-## Evolution rules (wiki → skills)
-
-- One change per cycle: refine one skill, create one skill, or honestly no-op.
-- Create a new skill only for a coherent cluster of ≥3 related wiki entries that
-  form a recurring, triggerable capability; otherwise refine.
-- **Snapshot first**, always: `python3 .wikiskills/bin/wikiskills.py snapshot <name>`.
-- Skills stay concise: instructions that change behavior, not knowledge archives.
-  If a wiki entry doesn't change what the agent should *do*, it stays wiki-only.
-- Weight by evidence: entries with evidence ≥ 2 can become firm instructions;
-  single-evidence entries at most hedged ones ("if X occurs, try Y").
-- Traceability: end each evolved SKILL.md with
-  `<!-- evolved <date> from wiki: <page>#<entry titles> -->`.
-
-## Validation gating (accept / rollback)
-
-- Every skill change is provisional until validated against
-  `.wikiskills/validation/tasks.md`.
-- Record results with `record-validation`; the CLI prints the verdict:
-  IMPROVED/BASELINE → accept; REGRESSED → `rollback <name>`; UNCHANGED → keep only
-  if the skill got simpler.
-- **Asymmetric rollback is the core invariant**: rolling back a skill never touches
-  the wiki. A failed evolution still leaves its knowledge behind, and the failure
-  itself is worth a wiki entry (Pitfall on the relevant page) so the next
-  evolution attempt does better.
+- R_best is initialized by a baseline validation run (`record-validation
+  --baseline`) and updated only on acceptance.
+- Accept iff score **strictly >** R_best. Ties and regressions are rejected →
+  `rollback <name>` immediately. There is no "keep if unchanged".
+- R_best = 1.0 → evolution early-stops; harder validation tasks are needed.
+- **The asymmetry is the core invariant:** rollback touches only the skill; the
+  wiki — patterns, log, and the recorded rejection itself — is retained, so the
+  next proposal builds on everything learned, including what failed.

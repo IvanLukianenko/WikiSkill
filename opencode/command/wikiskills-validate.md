@@ -1,24 +1,32 @@
 ---
-description: Validate a skill update against the task suite and gate it (accept or rollback)
+description: Gating step — validate against the task suite; accept only if it beats R_best, else roll back
 ---
 
-Skill to validate: $ARGUMENTS (if empty, pick the most recently snapshotted skill
-per `python3 .wikiskills/bin/wikiskills.py status` and say which you picked).
+Argument: $ARGUMENTS (skill name, or `--baseline`).
 
-Run the validation-gating step of WikiSkill (arXiv:2608.27454); rules are in
-`.opencode/wikiskills/METHODOLOGY.md`.
+Run WikiSkill validation gating (arXiv:2608.27454 §3.2.4, Eq. 4); rules in
+`.opencode/wikiskills/METHODOLOGY.md`. Check state first:
+`python3 .wikiskills/bin/wikiskills.py status`.
 
-1. Read `.wikiskills/validation/tasks.md`. If it defines VT-* tasks: execute each
-   task's prompt honestly, judge strictly against its success criteria (run the
-   implied checks and capture real output), then run its cleanup.
-2. Record: `python3 .wikiskills/bin/wikiskills.py record-validation --skill <name> --passed <M> --total <N> --note "<context>"`
-3. Obey the printed verdict: IMPROVED/BASELINE → accept; REGRESSED →
-   `python3 .wikiskills/bin/wikiskills.py rollback <name>` (never revert wiki
-   changes — the wiki persists by design); UNCHANGED → keep only if the skill got
-   simpler.
-4. If no tasks are defined: soft-gate instead — diff the skill against its latest
-   snapshot in `.wikiskills/archive/<name>/`, adversarially self-review, fix
-   findings, record `--passed 1 --total 1 --note "soft review"`, and remind the
-   user to add real tasks.
+**Baseline mode** (argument `--baseline`, or status shows "not baselined yet"):
+run the suite in `.wikiskills/validation/tasks.md` with current skills, then
+`python3 .wikiskills/bin/wikiskills.py record-validation --baseline --passed <M> --total <N> --note "baseline"`.
 
-Finish with verdict, score vs. previous, and what happened to the skill.
+**Gating mode** (skill named, or pick the most recently snapshotted one):
+
+1. Execute each VT-* task honestly against its success criteria; capture real
+   output; run its cleanup.
+2. Record and gate:
+   `python3 .wikiskills/bin/wikiskills.py record-validation --skill <name> --passed <M> --total <N> --note "<context>"`
+   (this appends the proposal diff + outcome to `wiki/skill-impact.md` and
+   advances the iteration).
+3. Obey the verdict: **ACCEPTED** → keep the skill, add a dated Evolution History
+   line to its PURPOSE.md. **REJECTED** (ties included) → roll back now:
+   `python3 .wikiskills/bin/wikiskills.py rollback <name>` — never revert wiki
+   changes; the wiki is retained by design.
+4. No VT-* tasks defined → soft-gate: diff the skill vs. its latest snapshot in
+   `.wikiskills/archive/<name>/`, adversarially self-review, fix findings, record
+   `--passed 1 --total 1 --note "soft review"`, and remind the user to add real
+   tasks.
+
+Finish with score vs. R_best, verdict, and what happened to the skill.

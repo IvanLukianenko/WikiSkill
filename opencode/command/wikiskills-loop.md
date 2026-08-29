@@ -1,16 +1,19 @@
 ---
-description: Run one full WikiSkill evolution cycle — consolidate → evolve → validate
+description: Run one iteration of the WikiSkill evolution loop (Algorithm 1)
 ---
 
-Run one full cycle of the WikiSkill loop (arXiv:2608.27454), in order:
+Execute one iteration of the WikiSkill loop (arXiv:2608.27454, Algorithm 1),
+in order:
 
-1. **Consolidate** — everything `/wikiskills-consolidate` specifies (skip cleanly
-   if no traces are pending).
-2. **Evolve** — everything `/wikiskills-evolve` specifies (an honest no-op ends
-   the cycle here).
-3. **Validate** — everything `/wikiskills-validate` specifies for the skill
-   touched in step 2, accepting or rolling back per the verdict. The wiki is
-   never rolled back.
+0. `python3 .wikiskills/bin/wikiskills.py status` — if R_best = 1.00, stop
+   (early-stopped until harder validation tasks exist). If not baselined yet,
+   first run the baseline per `/wikiskills-validate --baseline`.
+1. **Wiki Maintenance** — everything `/wikiskills-consolidate` specifies (skip
+   cleanly if nothing is pending).
+2. **Skill Proposal** — everything `/wikiskills-evolve` specifies; an honest
+   no-action ends the iteration here.
+3. **Gating** — everything `/wikiskills-validate` specifies for the skill touched
+   in step 2; on REJECTED roll the skill back. The wiki is retained either way.
 
-End with a ≤10-line cycle report: traces consolidated, wiki pages touched, skill
-change (or no-op and why), validation verdict.
+End with a ≤10-line iteration report: iteration number, traces consolidated,
+patterns touched, the proposal (or no-action and why), score vs. R_best, outcome.

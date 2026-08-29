@@ -1,5 +1,5 @@
 ---
-description: Initialize the WikiSkills workspace (traces / wiki / skill archive) in this project
+description: Initialize the WikiSkill workspace (raw traces / wiki / gated skills) in this project
 allowed-tools: Bash(python3:*), Read
 ---
 
@@ -9,13 +9,13 @@ allowed-tools: Bash(python3:*), Read
 
 ## Your task
 
-The WikiSkills workspace was just initialized (or refreshed) — the output above shows the layout. Now:
+The WikiSkill workspace was just initialized (or refreshed) — the output above shows the layout. Now:
 
-1. Briefly explain to the user the three layers that now exist, mapping them to the WikiSkill framework (arXiv:2608.27454):
-   - `.wikiskills/traces/` — raw execution experience, captured automatically by the plugin's Stop hook from now on (git-ignored).
-   - `.wikiskills/wiki/` — the persistent knowledge wiki. It is injected into every new session and is **never rolled back**.
-   - The skills directory (shown in the output) — executable skills, versioned via snapshots and gated on validation.
-2. Recommend the user add one or two validation tasks to `.wikiskills/validation/tasks.md` (open it and show them the template format) so future skill updates can be gated objectively.
-3. Tell them the workflow: just work normally; then periodically run `/wikiskills:loop` (or the individual steps `/wikiskills:consolidate` → `/wikiskills:evolve` → `/wikiskills:validate`).
+1. Briefly explain the three layers to the user, mapping them to the framework (arXiv:2608.27454, Figure 2):
+   - **Raw Layer** `.wikiskills/raw/` — immutable execution traces, captured automatically by the plugin's Stop hook from now on (git-ignored).
+   - **Wiki Layer** `.wikiskills/wiki/` — persistent knowledge: `patterns/` (failure/success patterns), `index.md` (catalog), `log.md` (evolution log), `skill-impact.md` (proposal diffs + gating outcomes). Compounds across iterations, **never rolled back**.
+   - **Skill Layer** (directory shown in the output) — each skill is `SKILL.md` + `PURPOSE.md`, versioned via snapshots and gated on validation against R_best.
+2. Recommend the user add validation tasks to `.wikiskills/validation/tasks.md` (open it and show the template) — the suite is the paper's D_val, and gating is only as good as it is.
+3. Tell them the workflow: work normally (sessions become training rollouts), then periodically run `/wikiskills:loop` for one full evolution iteration. The first loop will establish the R_best baseline automatically.
 
-Do not create any wiki pages or skills yet — those must be earned from real traces.
+Do not create any wiki patterns or skills yet — those must be earned from real traces.

@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
-"""WikiSkills Stop hook — capture a compact execution-trace digest (layer 1).
+"""WikiSkills Stop hook — capture execution traces into the Raw Layer.
 
-Reads the Claude Code Stop-hook payload from stdin, parses the session
-transcript, and writes/updates a per-session trace digest under
-.wikiskills/traces/. No-ops (exit 0) when the project has no .wikiskills
-workspace, so the plugin stays inert until /wikiskills:init.
+Implements the Raw Layer (raw/) of the WikiSkill framework (arXiv:2608.27454
+§3.1): immutable execution traces capturing the agent's step-by-step
+interactions. For each session this writes:
 
-Digests are compact on purpose: raw experience is the disposable layer of
-WikiSkill (arXiv:2608.27454); durable lessons belong in the wiki after
-/wikiskills:consolidate.
+  raw/traces/trace-<session>.json       compact digest (requests, tools, errors,
+                                        outcome, iteration stamp)
+  raw/traces/trace-<session>.log.jsonl  copy of the full transcript (capped at
+                                        config max_raw_log_bytes), so the Wiki
+                                        Maintainer and Skill Proposer can perform
+                                        deep root-cause analysis on demand
+
+No-ops (exit 0) when the project has no .wikiskills workspace, so the plugin
+stays inert until /wikiskills:init. Existing history is never deleted.
 """
 
 import json
@@ -102,6 +107,24 @@ def parse_transcript(path):
     return user_requests, errors, tools, last_assistant
 
 
+def copy_raw_log(transcript, dest, max_bytes):
+    """Copy the transcript into the Raw Layer; keep the tail if it exceeds the cap."""
+    try:
+        size = os.path.getsize(transcript)
+        with open(transcript, "rb") as src:
+            if size > max_bytes:
+                src.seek(size - max_bytes)
+                src.readline()  # drop the partial first line
+            data = src.read()
+        tmp = dest + ".tmp"
+        with open(tmp, "wb") as out:
+            out.write(data)
+        os.replace(tmp, dest)
+        return True
+    except OSError:
+        return False
+
+
 def main():
     try:
         payload = json.load(sys.stdin)
@@ -110,6 +133,19 @@ def main():
     root = find_root(payload.get("cwd"))
     if not root:
         return
+    cfg = {}
+    try:
+        with open(os.path.join(root, "config.json"), encoding="utf-8") as f:
+            cfg = json.load(f)
+    except (OSError, ValueError):
+        pass
+    iteration = 0
+    try:
+        with open(os.path.join(root, "state.json"), encoding="utf-8") as f:
+            iteration = int((json.load(f) or {}).get("iteration", 0))
+    except (OSError, ValueError):
+        pass
+
     session_id = str(payload.get("session_id") or "unknown")
     transcript = payload.get("transcript_path")
 
@@ -120,25 +156,35 @@ def main():
         except OSError:
             pass
 
-    traces_dir = os.path.join(root, "traces")
-    os.makedirs(traces_dir, exist_ok=True)
+    tdir = os.path.join(root, "raw", "traces")
+    os.makedirs(tdir, exist_ok=True)
     safe_sid = "".join(c for c in session_id if c.isalnum() or c in "-_")[:64] or "unknown"
-    path = os.path.join(traces_dir, f"trace-{safe_sid}.json")
+    path = os.path.join(tdir, f"trace-{safe_sid}.json")
+    raw_log = os.path.join(tdir, f"trace-{safe_sid}.log.jsonl")
 
     first_seen = now_iso()
+    prev = {}
     try:
         with open(path, encoding="utf-8") as f:
-            first_seen = (json.load(f) or {}).get("first_seen", first_seen)
+            prev = json.load(f) or {}
+            first_seen = prev.get("first_seen", first_seen)
     except (OSError, ValueError):
         pass
+
+    have_log = False
+    if transcript and os.path.exists(transcript):
+        have_log = copy_raw_log(transcript, raw_log,
+                                int(cfg.get("max_raw_log_bytes", 2000000)))
 
     digest = {
         "session_id": session_id,
         "agent": "claude-code",
+        "iteration": prev.get("iteration", iteration),
         "first_seen": first_seen,
         "updated": now_iso(),
         "cwd": payload.get("cwd"),
         "transcript_path": transcript,
+        "raw_log": raw_log if have_log else None,
         "user_requests": user_requests[-MAX_ITEMS:],
         "tools_used": tools,
         "errors": errors[-MAX_ITEMS:],

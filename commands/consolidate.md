@@ -1,31 +1,27 @@
 ---
-description: Consolidate captured execution traces into the persistent knowledge wiki
+description: Wiki Maintainer step — consolidate sampled execution traces into the persistent wiki
 allowed-tools: Bash(python3:*), Read, Write, Edit, Glob, Grep, Task
 ---
 
 ## Context
 
-- Pending traces: !`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/wikiskills.py" pending`
+- Stratified sample: !`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/wikiskills.py" sample`
 
 ## Your task
 
-Run the **experience-consolidation** step of the WikiSkill framework (arXiv:2608.27454): distill the pending traces above into the persistent wiki at `.wikiskills/wiki/`. Follow the `wikiskills-methodology` skill for wiki page and entry formats.
+Act as the **Wiki Maintainer** of the WikiSkill framework (arXiv:2608.27454, §3.2.2 and Appendix E.2): perform deep analysis of the sampled execution traces above and consolidate them into the persistent wiki at `.wikiskills/wiki/`. Follow the `wikiskills-methodology` skill for exact formats. If nothing was sampled, say so and stop.
 
-If there are **no pending traces**, say so and stop.
+You may delegate the trace analysis to the `wikiskills-consolidator` agent (pass it the sampled digest and raw-log paths) and apply its proposed wiki updates yourself.
 
-Steps:
+1. **Deep trace analysis (critical).** Read each sampled digest, and its raw log where the digest's errors are insufficient to determine a root cause (respect the character cap printed above). Read the agent's actual actions — what commands were issued; compare successful vs. failed sessions — what did successful ones do differently; identify ACTION PATTERNS and strategies, not just error messages; check whether active skills were followed and whether their guidance helped or misled.
+2. **Update pattern pages** under `.wikiskills/wiki/patterns/` (one page per pattern, kebab-case):
+   - Document BOTH failure patterns (what went wrong, root cause — WHY, not just WHAT — and how to avoid it) and success patterns (strategies that consistently lead to completion), with exact command sequences from the traces and concrete workarounds.
+   - Do NOT create duplicates — update existing pages with new evidence instead, using minimal incremental edits (append evidence, replace refined text). Add an evidence line per sighting, e.g. `Evidence: Iter 2: session ab12cd | Iter 3: persists`.
+   - Keep pages 10–30 lines. Only create patterns for meaningful, generalizable observations. Never include secrets (tokens, keys, credentials).
+3. **Update `wiki/index.md` (always, in full).** One line per pattern in exactly this format — it decides whether the pattern page ever gets read:
+   `- [pattern-name](patterns/pattern-name.md): PROBLEM + ROOT CAUSE + FIX in one or two sentences.`
+4. **Append to `wiki/log.md` (always,** even if no patterns changed**):** a brief entry for this consolidation — date, iteration (from `python3 .wikiskills/bin/wikiskills.py status`), traces analyzed, patterns created/updated, recurring errors observed.
+5. Mark the sampled traces done: `python3 .wikiskills/bin/wikiskills.py mark-consolidated <sampled digest paths>` (use `--all` only if you actually analyzed all pending traces).
+6. Report: patterns created/updated and the key root causes found. If the wiki gained substantive knowledge, suggest `/wikiskills:evolve` next.
 
-1. Read every pending trace file listed above. If there are more than ~5, delegate the reading and lesson-extraction to the `wikiskills-consolidator` agent (pass it the file paths) and work from its report.
-2. From the traces, extract only **durable, reusable lessons** — things that would change how a future session behaves in this project:
-   - **Facts** — stable properties of this codebase/environment (build commands, layout, versions, conventions).
-   - **Pitfalls** — errors that occurred and their actual root cause + remedy. The `errors` field of each trace is the primary ore here.
-   - **Procedures** — multi-step sequences that worked and are likely to recur.
-   - **Preferences** — how the user wants things done (style, tone, workflow).
-   Discard one-off details, secrets, transient state, and anything tied to a single dead-end task.
-3. Update the wiki **append/refine style**:
-   - If a lesson matches an existing entry in `.wikiskills/wiki/pages/*.md`, refine it: increment its evidence counter, update `last:`, generalize the wording if the new evidence broadens it, or correct it if the new evidence contradicts it (note the correction).
-   - Otherwise add the entry to the topically right page, creating a new kebab-case page under `.wikiskills/wiki/pages/` if no page fits.
-   - Never delete entries; an entry invalidated by evidence is rewritten to state the corrected knowledge.
-4. Update `.wikiskills/wiki/index.md`: keep the page list current with a one-line description per page.
-5. Mark the traces done: `python3 .wikiskills/bin/wikiskills.py mark-consolidated --all`
-6. Report to the user: how many traces were consolidated, which pages changed, and the 2–3 most valuable new lessons. If the wiki gained substantive new knowledge, suggest `/wikiskills:evolve` next.
+Never delete or reset wiki content — the Wiki Layer compounds and is never rolled back.

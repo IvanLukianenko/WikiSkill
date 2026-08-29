@@ -1,6 +1,6 @@
 ---
-description: Evolve skills grounded in the wiki — create or refine skills, with snapshots for rollback
-argument-hint: [skill-name (optional — otherwise decide from the wiki)]
+description: Skill Proposer step — propose one atomic, wiki-informed skill change (create/patch/no-action)
+argument-hint: [skill-name (optional focus)]
 allowed-tools: Bash(python3:*), Read, Write, Edit, Glob, Grep, Task
 ---
 
@@ -11,20 +11,22 @@ allowed-tools: Bash(python3:*), Read, Write, Edit, Glob, Grep, Task
 
 ## Your task
 
-Run the **skill-evolution** step of the WikiSkill framework (arXiv:2608.27454): propose and apply skill updates that are grounded **only in the wiki** (`.wikiskills/wiki/`), never directly in raw traces. Follow the `wikiskills-methodology` skill.
+Act as the **Skill Proposer** of the WikiSkill framework (arXiv:2608.27454, §3.2.3 and Appendix E.3): explore the wiki and execution traces ReAct-style, diagnose root causes, and propose exactly ONE atomic skill change. Follow the `wikiskills-methodology` skill for formats. For a large wiki you may delegate proposal drafting to the `wikiskills-evolver` agent and apply its proposal yourself.
 
-Steps:
+Workflow (in this order — read the wiki FIRST):
 
-1. Read `.wikiskills/wiki/index.md` and every page under `.wikiskills/wiki/pages/`. Read the existing skills in the skills directory shown in the status output (default `.claude/skills/`). For a large wiki, delegate the proposal drafting to the `wikiskills-evolver` agent.
-2. Decide the highest-value change (or honor the requested focus above if given). Exactly one of:
-   - **Refine an existing skill** — fold in wiki knowledge it lacks, tighten wording, fix knowledge the wiki has since corrected.
-   - **Create a new skill** — only when the wiki holds a coherent cluster of ≥3 related entries that describe a recurring, triggerable capability.
-   - **No-op** — if the wiki holds nothing actionable beyond what skills already encode, say so and stop. Do not invent changes.
-3. Before touching a skill named `<name>`, snapshot it:
-   `python3 .wikiskills/bin/wikiskills.py snapshot <name>`
-   (this also works for a not-yet-existing skill — rollback will then delete it).
-4. Apply the change. Rules:
-   - Keep the diff minimal and the skill concise; a skill is instructions, not an archive.
-   - Every substantive claim in the skill must trace to a wiki entry. End the SKILL.md with an HTML comment changelog line: `<!-- evolved <date> from wiki: <page>#<entry ids/titles> -->`.
-   - New skills need proper frontmatter (`name`, `description` with clear trigger conditions).
-5. Report: what changed and why (citing the wiki entries), then tell the user the update is **provisional until validated** and run — or offer to run — `/wikiskills:validate <name>`.
+1. Read `.wikiskills/wiki/index.md` to see what patterns exist.
+2. Read `.wikiskills/wiki/skill-impact.md` to see what was tried before. It contains the diffs of rejected proposals — **do NOT repeat a rejected approach.**
+3. Read the specific pattern pages relevant to current failures, and the existing skills (each `SKILL.md` + `PURPOSE.md`) in the skills directory shown in the status output.
+4. Read execution traces on demand to confirm root causes: read at least 4 trace digests/raw logs under `.wikiskills/raw/traces/` (or all of them if fewer exist), targeting your exploration at the failures the patterns describe.
+5. Decide ONE of:
+   - **patch** an existing skill — preferred when an existing skill is partially correct. Keep edits minimal and targeted (append / replace short specific sections), not a rewrite.
+   - **create** a new skill — when no existing skill covers a documented, recurring pattern cluster.
+   - **no action** — if the wiki holds nothing actionable beyond what skills encode, or everything actionable was already rejected. Say so honestly and stop (do not snapshot).
+6. Snapshot before touching skill `<name>`: `python3 .wikiskills/bin/wikiskills.py snapshot <name>` (works for a not-yet-existing skill; rollback then deletes it).
+7. Apply the change:
+   - `SKILL.md`: YAML frontmatter (`name`, `description`), then sections **When to Apply**, **When NOT to Apply**, and **Instructions**. Focus on action patterns and concrete strategies; keep it concise and actionable.
+   - `PURPOSE.md`: sections **Origin** (what motivated this skill, including any prior rejected attempt it learns from), **Patterns Addressed** (the wiki pattern pages it draws on), and **Evolution History** (dated one-liners per accepted change).
+8. Report the proposal (target skill, change summary, wiki patterns cited), then state that per validation gating the update is **provisional** and run — or tell the user to run — `/wikiskills:validate <name>`.
+
+Honor the requested focus above if one was given, but the rejected-proposal rule still applies.

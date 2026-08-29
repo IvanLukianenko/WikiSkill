@@ -1,5 +1,5 @@
 ---
-description: Run one full WikiSkill evolution cycle — consolidate → evolve → validate
+description: Run one iteration of the WikiSkill evolution loop (Algorithm 1) — consolidate → propose → validate → gate
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Task
 ---
 
@@ -9,10 +9,11 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Task
 
 ## Your task
 
-Run one full cycle of the WikiSkill loop (arXiv:2608.27454). Execute the three phases **in order, in this one conversation**, following each phase's own command spec:
+Execute one iteration 𝑘 of the WikiSkill evolution loop (arXiv:2608.27454, Algorithm 1), in order, in this one conversation. Rollouts happen organically — the user's normal sessions are the training rollouts, captured automatically into `.wikiskills/raw/`.
 
-1. **Consolidate** — follow `/wikiskills:consolidate`: distill pending traces into the wiki, mark them consolidated. If there are no pending traces, note it and continue (the wiki may still hold unexploited knowledge from earlier cycles).
-2. **Evolve** — follow `/wikiskills:evolve`: propose and apply the single highest-value skill change grounded in the wiki, snapshotting first. If the honest answer is no-op, stop here and report — do not force a change just to have something to validate.
-3. **Validate** — follow `/wikiskills:validate` for the skill touched in phase 2: run the task suite (or the soft-gating fallback), record the result, and accept or roll back per the verdict. The wiki is never rolled back.
+0. **Early-stop check (Alg. 1, line 4):** if the status shows R_best = 1.00, stop — tell the user evolution is early-stopped until harder validation tasks are added. If status shows "not baselined yet", first establish the baseline per `/wikiskills:validate --baseline`, then continue.
+1. **Wiki Maintenance:** follow `/wikiskills:consolidate` — stratified-sample pending traces, consolidate into patterns/index/log. If nothing is pending, note it and continue (the wiki may still hold unexploited knowledge).
+2. **Skill Proposal:** follow `/wikiskills:evolve` — one atomic proposal (create/patch), grounded in the wiki, never repeating a rejected diff from `skill-impact.md`, snapshot before applying. An honest **no action** ends the iteration here — report and stop; do not force a change.
+3. **Gating:** follow `/wikiskills:validate` for the skill touched in step 2 — run the suite, `record-validation` (which writes the diff and outcome to `wiki/skill-impact.md` and advances the iteration), and on REJECTED roll the skill back. The wiki is retained regardless of the outcome.
 
-End with a cycle report: traces consolidated, wiki pages touched, skill change made (or no-op and why), validation verdict, and current state of the loop. Keep it under ~10 lines.
+End with a ≤10-line iteration report: iteration number, traces consolidated, patterns touched, the proposal (or no-action and why), validation score vs. R_best, and the gating outcome.

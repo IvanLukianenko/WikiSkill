@@ -1,19 +1,25 @@
 ---
-description: Evolve skills grounded in the wiki — create or refine skills, with snapshots for rollback
+description: Skill Proposer step — one atomic, wiki-informed skill change (create/patch/no-action)
 ---
 
 Requested focus (optional): $ARGUMENTS
 
-Run the skill-evolution step of WikiSkill (arXiv:2608.27454). First read
-`.opencode/wikiskills/METHODOLOGY.md` and follow its evolution rules.
+Act as the Skill Proposer of WikiSkill (arXiv:2608.27454 §3.2.3). Rules are in
+`.opencode/wikiskills/METHODOLOGY.md`. Workflow, in order:
 
-1. Read the whole wiki (`.wikiskills/wiki/`) and the existing skills in the
-   `skills_dir` from `.wikiskills/config.json` (default `.claude/skills`).
-2. Decide ONE change grounded only in the wiki: refine an existing skill, create a
-   new skill (only for a coherent cluster of ≥3 related wiki entries), or honestly
-   no-op (then say so and stop).
-3. Snapshot before editing: `python3 .wikiskills/bin/wikiskills.py snapshot <name>`
-4. Apply a minimal, concise change; cite wiki entries in a trailing HTML comment
-   changelog: `<!-- evolved <date> from wiki: <page>#<entries> -->`.
-5. Report what changed and why, and tell the user the update is provisional until
-   `/wikiskills-validate <name>` runs.
+1. Read `.wikiskills/wiki/index.md`.
+2. Read `.wikiskills/wiki/skill-impact.md` — it contains rejected proposal diffs;
+   do NOT repeat a rejected approach.
+3. Read the relevant pattern pages and existing skills (SKILL.md + PURPOSE.md in
+   the `skills_dir` from `.wikiskills/config.json`).
+4. Read ≥4 traces under `.wikiskills/raw/traces/` (or all, if fewer) to confirm
+   root causes.
+5. Decide ONE atomic change: **patch** an existing skill (preferred when it is
+   partially correct; minimal targeted edits), **create** a new skill, or honest
+   **no action** (say why and stop).
+6. Snapshot first: `python3 .wikiskills/bin/wikiskills.py snapshot <name>`
+7. Apply: SKILL.md = frontmatter + When to Apply + When NOT to Apply +
+   Instructions (concrete action rules, concise); PURPOSE.md = Origin + Patterns
+   Addressed + Evolution History.
+8. Report the proposal and its grounding, then tell the user the update is
+   provisional until `/wikiskills-validate <name>` gates it.

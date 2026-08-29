@@ -1,13 +1,14 @@
 /**
- * WikiSkills plugin for opencode — trace capture (layer 1 of WikiSkill,
- * arXiv:2608.27454).
+ * WikiSkills plugin for opencode — Raw Layer trace capture for the WikiSkill
+ * framework (arXiv:2608.27454 §3.1).
  *
- * On session.idle, writes a compact per-session trace digest into
- * .wikiskills/traces/, in the same schema the Claude Code hook uses, so the
- * consolidate/evolve/validate commands work identically under opencode.
- * No-ops until the project has a .wikiskills/ workspace (run the
- * wikiskills-init command first).
+ * On session.idle, writes into .wikiskills/raw/traces/ (same schema as the
+ * Claude Code hook, so consolidate/evolve/validate work identically):
+ *   trace-<session>.json       compact digest
+ *   trace-<session>.log.jsonl  raw message log (capped), for deep root-cause
+ *                              analysis by the Wiki Maintainer / Skill Proposer
  *
+ * No-ops until the project has a .wikiskills/ workspace (run wikiskills-init).
  * Install: copy into .opencode/plugin/ (opencode/install.sh does this).
  */
 
@@ -17,6 +18,7 @@ import * as path from "node:path"
 const MAX_TEXT = 400
 const MAX_LAST = 1200
 const MAX_ITEMS = 25
+const DEFAULT_MAX_RAW_BYTES = 2000000
 
 const clip = (s, n = MAX_TEXT) => {
   const t = String(s ?? "").replace(/\s+/g, " ").trim()
@@ -34,6 +36,14 @@ const findRoot = (start) => {
   }
 }
 
+const readJson = (file) => {
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8"))
+  } catch {
+    return null
+  }
+}
+
 export const WikiSkillsPlugin = async ({ client, directory, worktree }) => {
   const projectDir = worktree || directory || process.cwd()
 
@@ -47,6 +57,9 @@ export const WikiSkillsPlugin = async ({ client, directory, worktree }) => {
     } catch {
       return
     }
+
+    const cfg = readJson(path.join(root, "config.json")) || {}
+    const iteration = (readJson(path.join(root, "state.json")) || {}).iteration ?? 0
 
     const userRequests = []
     const errors = []
@@ -69,32 +82,48 @@ export const WikiSkillsPlugin = async ({ client, directory, worktree }) => {
       }
     }
 
-    const tracesDir = path.join(root, "traces")
+    const tracesDir = path.join(root, "raw", "traces")
     fs.mkdirSync(tracesDir, { recursive: true })
     const safeSid = String(sessionID).replace(/[^A-Za-z0-9_-]/g, "").slice(0, 64) || "unknown"
-    const file = path.join(tracesDir, `trace-${safeSid}.json`)
+    const digestFile = path.join(tracesDir, `trace-${safeSid}.json`)
+    const rawLogFile = path.join(tracesDir, `trace-${safeSid}.log.jsonl`)
 
-    let firstSeen = new Date().toISOString().replace(/\.\d+Z$/, "Z")
+    // Raw log: one JSON line per message, capped from the tail.
+    let haveLog = false
     try {
-      firstSeen = JSON.parse(fs.readFileSync(file, "utf8")).first_seen || firstSeen
+      const maxBytes = Number(cfg.max_raw_log_bytes) || DEFAULT_MAX_RAW_BYTES
+      const lines = messages.map((m) => JSON.stringify(m))
+      let total = 0
+      const kept = []
+      for (let i = lines.length - 1; i >= 0; i--) {
+        total += lines[i].length + 1
+        if (total > maxBytes) break
+        kept.unshift(lines[i])
+      }
+      fs.writeFileSync(rawLogFile + ".tmp", kept.join("\n") + "\n")
+      fs.renameSync(rawLogFile + ".tmp", rawLogFile)
+      haveLog = true
     } catch {}
 
+    const prev = readJson(digestFile) || {}
+    const nowIso = () => new Date().toISOString().replace(/\.\d+Z$/, "Z")
     const digest = {
       session_id: sessionID,
       agent: "opencode",
-      first_seen: firstSeen,
-      updated: new Date().toISOString().replace(/\.\d+Z$/, "Z"),
+      iteration: prev.iteration ?? iteration,
+      first_seen: prev.first_seen || nowIso(),
+      updated: nowIso(),
       cwd: projectDir,
       transcript_path: null,
+      raw_log: haveLog ? rawLogFile : null,
       user_requests: userRequests.slice(-MAX_ITEMS),
       tools_used: tools,
       errors: errors.slice(-MAX_ITEMS),
       last_assistant_message: lastAssistant,
       consolidated: false,
     }
-    const tmp = file + ".tmp"
-    fs.writeFileSync(tmp, JSON.stringify(digest, null, 2) + "\n")
-    fs.renameSync(tmp, file)
+    fs.writeFileSync(digestFile + ".tmp", JSON.stringify(digest, null, 2) + "\n")
+    fs.renameSync(digestFile + ".tmp", digestFile)
   }
 
   return {
