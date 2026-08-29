@@ -137,6 +137,20 @@ where the traces live — not in CI):
 | `/wikiskill:loop` / `-loop` | One full iteration of Algorithm 1, with the R_best = 1.0 early stop |
 | `/wikiskill:rollback <skill> [ts]` / `-rollback` | Skill-only rollback (Alg. 1 line 16; the wiki is retained) |
 | `/wikiskill:models [agent=model ...]` (Claude Code) | Per-project model choice for the evolution agents (see below) |
+| `/wikiskill:help` / `-help` | Detailed how-it-works guide + where this project's loop currently stands |
+
+### Token accounting
+
+Skill evolution costs tokens, and the plugin keeps that visible:
+
+- every trace digest records its session's usage summed from the transcript
+  (`tokens`: input/output/cache, by the Stop hook — free and deterministic);
+- measured evolution work (the consolidator/evolver/validator agent runs
+  inside loop phases) is logged via `wikiskill.py record-tokens` into
+  `.wikiskill/stats.jsonl`, with running totals per phase in `state.json`;
+- `/wikiskill:status` shows both: the cumulative evolution cost by phase and
+  the total traced-session usage. Only measured numbers are recorded — the
+  commands forbid estimating.
 
 ### Choosing models for the evolution agents
 

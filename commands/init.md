@@ -6,16 +6,16 @@ allowed-tools: Bash(python3:*), Read
 ## Context
 
 - Init output: !`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/wikiskill.py" init`
+- Guide: !`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/wikiskill.py" guide`
 
 ## Your task
 
-The WikiSkill workspace was just initialized (or refreshed) — the output above shows the layout. Now:
+The WikiSkill workspace was just initialized (or refreshed). Present a thorough onboarding to the user based on the guide above — do not just dump it; render it in the conversation language, keeping all substance:
 
-1. Briefly explain the three layers to the user, mapping them to the framework (arXiv:2608.27454, Figure 2):
-   - **Raw Layer** `.wikiskill/raw/` — immutable execution traces, captured automatically by the plugin's Stop hook from now on (git-ignored).
-   - **Wiki Layer** `.wikiskill/wiki/` — persistent knowledge: `patterns/` (failure/success patterns), `index.md` (catalog), `log.md` (evolution log), `skill-impact.md` (proposal diffs + gating outcomes). Compounds across iterations, **never rolled back**.
-   - **Skill Layer** (directory shown in the output) — each skill is `SKILL.md` + `PURPOSE.md`, versioned via snapshots and gated on validation against R_best.
-2. Recommend the user add validation tasks to `.wikiskill/validation/tasks.md` (open it and show the template) — the suite is the paper's D_val, and gating is only as good as it is.
-3. Tell them the workflow: work normally (sessions become training rollouts), then periodically run `/wikiskill:loop` for one full evolution iteration. The first loop will establish the R_best baseline automatically.
+1. **The three layers** and their lifecycle rules (raw = disposable & auto-captured; wiki = compounding & never rolled back & worth committing to git; skills = gated & reversible), mapped to arXiv:2608.27454 Figure 2.
+2. **One loop iteration** — consolidate → evolve → validate — and the gating rule (strict improvement over R_best, automatic rollback, early stop at 1.0).
+3. **What runs automatically** (trace capture every session; validation-task harvesting; the auto-loop trigger with its current thresholds from `.wikiskill/config.json`) versus what they can tune (`auto_loop` mode, thresholds, `/wikiskill:models`, `inject_wiki_context`).
+4. **Token accounting**: each trace digest records the session's token usage, measured evolution work is logged via `record-tokens`, and `/wikiskill:status` shows the running cost of skill evolution.
+5. **Their minimal workflow**: work normally; approve (or let `auto` mode run) `/wikiskill:loop` when nudged; optionally strengthen `.wikiskill/validation/tasks.md` by hand. Mention `/wikiskill:help` re-shows this guide anytime.
 
 Do not create any wiki patterns or skills yet — those must be earned from real traces.

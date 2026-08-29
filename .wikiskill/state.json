@@ -34,5 +34,12 @@
       }
     }
   ],
-  "last_loop_at": "2026-08-29T11:59:15Z"
+  "last_loop_at": "2026-08-29T11:59:15Z",
+  "token_stats": {
+    "total": 53293,
+    "by_phase": {
+      "validate": 53293
+    },
+    "entries": 1
+  }
 }
