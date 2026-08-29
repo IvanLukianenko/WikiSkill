@@ -1,1 +1,136 @@
 # WikiSkills
+
+**Auto-evolving agent skills for Claude Code and opencode**, a faithful
+implementation of *"WikiSkill: Compiling Agent Experience into Persistent
+Knowledge for Skill Evolution"* ([arXiv:2608.27454](https://arxiv.org/abs/2608.27454),
+Google Research & Virginia Tech).
+
+Most skill-evolution setups collapse what an agent has learned into scattered
+optimization history. WikiSkill's key idea is a strict **three-layer workspace**
+with an orchestrated evolution loop over it (paper Figure 2 / Algorithm 1):
+
+```mermaid
+flowchart LR
+    A["Raw Layer<br/><code>.wikiskills/raw/</code><br/>immutable execution traces<br/>(permanent, write once)"]
+    B["Wiki Layer<br/><code>.wikiskills/wiki/</code><br/>patterns/ · index.md · log.md<br/>· skill-impact.md<br/>(compounding, never reset)"]
+    C["Skill Layer<br/><code>.claude/skills/</code><br/>SKILL.md + PURPOSE.md<br/>(reversible, conditional)"]
+    A -- "Wiki Maintainer<br/>/wikiskills:consolidate" --> B
+    B -- "Skill Proposer<br/>/wikiskills:evolve" --> C
+    C -- "Gating & Rollback<br/>/wikiskills:validate<br/>accept iff score > R_best" --> C
+    C -. "Inference Agent: your normal sessions<br/>(skills active, wiki restricted;<br/>traces auto-captured by hooks)" .-> A
+```
+
+- **Raw Layer** — every session is captured automatically (Claude Code `Stop`
+  hook / opencode `session.idle` plugin) as a digest **plus** a raw execution
+  log for deep root-cause analysis. Immutable, git-ignored.
+- **Wiki Layer** — the Wiki Maintainer consolidates a stratified sample of
+  traces (≤5 failing + ≤3 passing per iteration, per the paper's Appendix C)
+  into pattern pages (failure *and* success patterns, 10–30 lines, root cause +
+  concrete fixes), a one-line-per-pattern index, an evolution log, and a
+  **skill-impact tracker** that the CLI appends to programmatically — every
+  proposal's unified diff, validation score, and Accepted/Rejected outcome.
+  The wiki is **never rolled back**; the paper's ablation attributes the gains
+  to exactly this persistence.
+- **Skill Layer** — the Skill Proposer makes **one atomic proposal per
+  iteration** (create / patch / honest no-action), grounded in the wiki and
+  forbidden from repeating any rejected diff recorded in `skill-impact.md`.
+  Each skill is `SKILL.md` (When to Apply / When NOT to Apply / Instructions)
+  plus `PURPOSE.md` (Origin / Patterns Addressed / Evolution History).
+  Snapshots are taken before every change; gating accepts a change only if the
+  validation score **strictly beats R_best**, else it rolls back — while the
+  wiki keeps what was learned, including the failure itself.
+
+Two paper-faithful details worth knowing: new sessions do **not** get the wiki
+injected (the paper's §5.1 ablation shows inference-time wiki access degrades
+evolved-skill quality — opt in via `inject_wiki_context` in config), and
+evolution early-stops when R_best reaches 1.0 until you add harder validation
+tasks.
+
+## Install — Claude Code
+
+```text
+/plugin marketplace add IvanLukianenko/WikiSkills
+/plugin install wikiskills@wikiskills
+```
+
+Then, in each project where you want skills to evolve:
+
+```text
+/wikiskills:init
+```
+
+Requires `python3` on PATH (stdlib only, no dependencies).
+
+## Install — opencode
+
+```bash
+git clone https://github.com/IvanLukianenko/WikiSkills
+WikiSkills/opencode/install.sh /path/to/your/project
+```
+
+This installs `/wikiskills-*` commands, the trace-capture plugin
+(`.opencode/plugin/wikiskills.js`), and initializes the workspace. Evolved
+skills default to `.claude/skills/`; point `skills_dir` in
+`.wikiskills/config.json` at `.opencode/skill` for opencode-native skills.
+Both tools can share one `.wikiskills/` workspace in the same repo.
+
+## Usage
+
+1. **Work normally.** Your sessions are the training rollouts; each leaves a
+   trace in `.wikiskills/raw/traces/`.
+2. **Define validation** (once): add tasks with objective success criteria to
+   `.wikiskills/validation/tasks.md` — this suite is the paper's validation
+   split, and gating is only as good as it is. Without tasks, updates fall back
+   to a soft self-review.
+3. **Evolve periodically:** run `/wikiskills:loop` (Claude Code) or
+   `/wikiskills-loop` (opencode). One run = one iteration of Algorithm 1:
+   baseline (first time) → consolidate → propose → validate → gate.
+
+| Command (Claude Code / opencode) | Paper component |
+|---|---|
+| `/wikiskills:init` / `/wikiskills-init` | Workspace initialization (S₀, W₀ = ∅; plugin is inert until then) |
+| `/wikiskills:status` / `-status` | Iteration k, R_best, pending traces, patterns, snapshots |
+| `/wikiskills:consolidate` / `-consolidate` | Wiki Maintainer (§3.2.2): stratified sample → pattern pages, index, log |
+| `/wikiskills:evolve [skill]` / `-evolve` | Skill Proposer (§3.2.3): ReAct exploration → one atomic create/patch/no-action |
+| `/wikiskills:validate <skill>` or `--baseline` / `-validate` | Gating & Rollback (§3.2.4, Eq. 4): accept iff score > R_best; CLI appends diff + outcome to skill-impact.md |
+| `/wikiskills:loop` / `-loop` | One full iteration of Algorithm 1, with the R_best = 1.0 early stop |
+| `/wikiskills:rollback <skill> [ts]` / `-rollback` | Skill-only rollback (Alg. 1 line 16; the wiki is retained) |
+
+## What's in the box
+
+```
+.claude-plugin/plugin.json        plugin manifest (+ marketplace.json for /plugin marketplace add)
+commands/                         the 7 slash commands above
+agents/                           subagents adapting the paper's Appendix E prompts:
+                                  wikiskills-consolidator (Wiki Maintainer, E.2),
+                                  wikiskills-evolver (Skill Proposer, E.3),
+                                  wikiskills-validator (per-task validation)
+skills/wikiskills-methodology/    the framework's rules as a skill (formats, loop, gating)
+hooks/hooks.json                  Stop → capture trace + raw log; SessionStart → status note
+scripts/wikiskills.py             dependency-free outer-loop harness: init, stratified
+                                  sampling, snapshots, R_best gating, skill-impact diffs
+scripts/capture_trace.py          Stop-hook implementation (Raw Layer writer)
+scripts/session_start.py          SessionStart-hook implementation
+opencode/                         opencode plugin (JS), command mirrors, install.sh
+docs/PAPER.md                     section-by-section mapping to the paper + stated adaptations
+```
+
+Per-project state lives in `.wikiskills/` (created by init): `wiki/`,
+`validation/`, and `state.json` are meant to be committed — the wiki *is* the
+compounding asset; `raw/` and `bin/` are git-ignored automatically.
+
+## Fidelity to the paper
+
+[docs/PAPER.md](docs/PAPER.md) maps every paper component (three layers, the
+four Algorithm 1 steps, Appendix C sampling, Appendix E prompts, Eq. 4 gating)
+to its implementation here, and lists the deliberate adaptations a development
+plugin needs: real sessions instead of a training split, a user-defined
+validation suite instead of a benchmark scorer, native skill loading instead of
+full prompt injection, and human-triggered iterations.
+
+## References
+
+- Paper: [arXiv:2608.27454](https://arxiv.org/abs/2608.27454) ([HTML](https://arxiv.org/html/2608.27454), [HF page](https://huggingface.co/papers/2608.27454))
+- Karpathy's LLM Wiki (the paper's stated inspiration): https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f
+- Claude Code plugins: https://code.claude.com/docs/en/plugins
+- opencode plugins: https://opencode.ai/docs/plugins/

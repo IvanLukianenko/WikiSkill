@@ -1,0 +1,16 @@
+{
+  "name": "wikiskills",
+  "owner": {
+    "name": "Ivan Lukianenko"
+  },
+  "metadata": {
+    "description": "Marketplace for the WikiSkills plugin — auto-evolving agent skills backed by a persistent knowledge wiki (arXiv:2608.27454)."
+  },
+  "plugins": [
+    {
+      "name": "wikiskills",
+      "source": "./",
+      "description": "Auto-evolve agent skills: traces → persistent wiki → validated skill updates, per the WikiSkill framework (arXiv:2608.27454)."
+    }
+  ]
+}
