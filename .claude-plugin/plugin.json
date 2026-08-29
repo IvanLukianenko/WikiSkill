@@ -1,6 +1,6 @@
 {
   "name": "wikiskill",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Auto-evolve agent skills via the WikiSkill framework (arXiv:2608.27454): capture execution traces, consolidate them into a persistent knowledge wiki, evolve skills grounded in that wiki, and gate every skill change on validation with rollback.",
   "author": {
     "name": "Ivan Lukianenko",
