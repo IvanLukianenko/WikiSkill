@@ -1,6 +1,6 @@
 ---
-name: wikiskills-methodology
-description: The WikiSkill framework's rules for the three-layer workspace and evolution loop (arXiv:2608.27454). Use whenever working inside a .wikiskills/ workspace — consolidating traces into wiki patterns, proposing or applying skill updates, or running validation gating.
+name: wikiskill-methodology
+description: The WikiSkill framework's rules for the three-layer workspace and evolution loop (arXiv:2608.27454). Use whenever working inside a .wikiskill/ workspace — consolidating traces into wiki patterns, proposing or applying skill updates, or running validation gating.
 ---
 
 # WikiSkill Methodology
@@ -11,9 +11,9 @@ shortcut across them:
 
 | Layer | Location | Lifecycle |
 |---|---|---|
-| Raw | `.wikiskills/raw/traces/` | **Permanent, write once.** Auto-captured digests + raw logs. Marked consolidated, never edited or deleted. |
-| Wiki | `.wikiskills/wiki/` | **Compounding, never reset.** Grows by create/patch only; retained across all iterations regardless of skill gating. |
-| Skills | `skills_dir` from `.wikiskills/config.json` (default `.claude/skills/`) | **Reversible, conditional.** Snapshot before every change; accepted only if validation beats R_best; otherwise rolled back. |
+| Raw | `.wikiskill/raw/traces/` | **Permanent, write once.** Auto-captured digests + raw logs. Marked consolidated, never edited or deleted. |
+| Wiki | `.wikiskill/wiki/` | **Compounding, never reset.** Grows by create/patch only; retained across all iterations regardless of skill gating. |
+| Skills | `skills_dir` from `.wikiskill/config.json` (default `.claude/skills/`) | **Reversible, conditional.** Snapshot before every change; accepted only if validation beats R_best; otherwise rolled back. |
 
 One iteration = Inference rollouts (the user's normal sessions) → Wiki
 Maintenance → Skill Proposal → Apply → Validate → Gate (Algorithm 1). The
@@ -60,7 +60,7 @@ Each skill directory contains exactly two authored files:
   existing skills → ≥4 raw traces (or all, if fewer).
 - Prefer patching a partially-correct skill over creating a new one; patches are
   minimal targeted edits, not rewrites.
-- Snapshot first, always: `python3 .wikiskills/bin/wikiskills.py snapshot <name>`.
+- Snapshot first, always: `python3 .wikiskill/bin/wikiskill.py snapshot <name>`.
 
 ## Gating and rollback (Eq. 4)
 

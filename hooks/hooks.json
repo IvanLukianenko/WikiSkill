@@ -1,5 +1,5 @@
 {
-  "description": "WikiSkills hooks: capture execution traces on Stop (layer 1) and inject the persistent wiki on SessionStart (layer 2). Both no-op until the project runs /wikiskills:init.",
+  "description": "WikiSkill hooks: capture execution traces on Stop (layer 1) and inject the persistent wiki on SessionStart (layer 2). Both no-op until the project runs /wikiskill:init.",
   "hooks": {
     "Stop": [
       {

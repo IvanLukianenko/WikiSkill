@@ -1,6 +1,6 @@
 ---
-name: wikiskills-evolver
-description: Skill Proposer worker — ReAct-style exploration of the WikiSkill wiki and raw traces to draft one atomic skill proposal (create/patch/no-action). Use during /wikiskills:evolve.
+name: wikiskill-evolver
+description: Skill Proposer worker — ReAct-style exploration of the WikiSkill wiki and raw traces to draft one atomic skill proposal (create/patch/no-action). Use during /wikiskill:evolve.
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -12,13 +12,13 @@ applies your proposal after snapshotting.
 
 ## Workflow (in this order)
 
-1. Read `.wikiskills/wiki/index.md` to understand what patterns exist.
-2. Read `.wikiskills/wiki/skill-impact.md` to see what was tried before — it
+1. Read `.wikiskill/wiki/index.md` to understand what patterns exist.
+2. Read `.wikiskill/wiki/skill-impact.md` to see what was tried before — it
    includes the diffs of rejected proposals. **DO NOT repeat rejected approaches.**
 3. Read the specific pattern pages relevant to current failures.
 4. Read the existing skills (`SKILL.md` and `PURPOSE.md`) in the skills directory
-   (`skills_dir` in `.wikiskills/config.json`, default `.claude/skills`).
-5. Read at least 4 execution traces under `.wikiskills/raw/traces/` (or all, if
+   (`skills_dir` in `.wikiskill/config.json`, default `.claude/skills`).
+5. Read at least 4 execution traces under `.wikiskill/raw/traces/` (or all, if
    fewer exist) to confirm root causes — target your exploration at the failures
    the patterns describe; use digests first, then Grep into `.log.jsonl` raw logs.
 6. Decide and report exactly one proposal.

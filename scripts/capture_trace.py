@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""WikiSkills Stop hook — capture execution traces into the Raw Layer.
+"""WikiSkill Stop hook — capture execution traces into the Raw Layer.
 
 Implements the Raw Layer (raw/) of the WikiSkill framework (arXiv:2608.27454
 §3.1): immutable execution traces capturing the agent's step-by-step
@@ -12,8 +12,8 @@ interactions. For each session this writes:
                                         Maintainer and Skill Proposer can perform
                                         deep root-cause analysis on demand
 
-No-ops (exit 0) when the project has no .wikiskills workspace, so the plugin
-stays inert until /wikiskills:init. Existing history is never deleted.
+No-ops (exit 0) when the project has no .wikiskill workspace, so the plugin
+stays inert until /wikiskill:init. Existing history is never deleted.
 """
 
 import json
@@ -33,7 +33,7 @@ def now_iso():
 def find_root(start):
     d = os.path.abspath(start or os.getcwd())
     while True:
-        candidate = os.path.join(d, ".wikiskills")
+        candidate = os.path.join(d, ".wikiskill")
         if os.path.isdir(candidate):
             return candidate
         parent = os.path.dirname(d)
