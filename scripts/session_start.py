@@ -16,6 +16,14 @@ No-ops when the project has no .wikiskill workspace.
 import json
 import os
 import sys
+from datetime import datetime, timezone
+
+
+def parse_iso(s):
+    try:
+        return datetime.strptime(s, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    except (TypeError, ValueError):
+        return None
 
 
 def find_root(start):
@@ -72,9 +80,43 @@ def main():
         "access so that traces stay informative for skill evolution.",
     ]
     if pending:
-        lines += ["", f"{pending} trace(s) pending consolidation ({failing} with errors). "
-                      "If the user is between tasks, suggest /wikiskill:loop "
-                      "(or /wikiskill:consolidate)."]
+        lines += ["", f"{pending} trace(s) pending consolidation ({failing} with errors)."]
+
+    # Auto-loop trigger: due when enough session traces are pending, or enough
+    # days have passed since the last loop with at least one trace pending.
+    state = {}
+    try:
+        with open(os.path.join(root, "state.json"), encoding="utf-8") as f:
+            state = json.load(f) or {}
+    except (OSError, ValueError):
+        pass
+    mode = str(cfg.get("auto_loop", "suggest")).lower()
+    reasons = []
+    if mode in ("suggest", "auto") and pending > 0:
+        every_sessions = int(cfg.get("loop_every_sessions", 5) or 0)
+        if every_sessions > 0 and pending >= every_sessions:
+            reasons.append(f"{pending} session trace(s) pending (threshold {every_sessions})")
+        every_days = float(cfg.get("loop_every_days", 3) or 0)
+        last = parse_iso(state.get("last_loop_at") or state.get("created"))
+        if every_days > 0 and last is not None:
+            days = (datetime.now(timezone.utc) - last).total_seconds() / 86400
+            if days >= every_days:
+                reasons.append(f"{days:.1f} day(s) since the last loop (threshold {every_days:g})")
+    if reasons:
+        why = "; ".join(reasons)
+        if mode == "auto":
+            lines += ["", f"AUTO-LOOP IS DUE ({why}). After you have fully completed the "
+                          "user's current request in this session — never before, and never "
+                          "interrupting their task — run one full /wikiskill:loop iteration "
+                          "(consolidate → evolve → validate) and report its outcome briefly. "
+                          "If the session ends without a natural break, skip it silently."]
+        else:
+            lines += ["", f"AUTO-LOOP IS DUE ({why}). At the first natural moment (your "
+                          "greeting, or when the user is between tasks), briefly suggest "
+                          "running /wikiskill:loop. Do not run it uninvited."]
+    elif pending:
+        lines += ["If the user is between tasks, you may suggest /wikiskill:loop "
+                  "(or /wikiskill:consolidate)."]
 
     if cfg.get("inject_wiki_context"):
         max_chars = int(cfg.get("session_context_max_chars", 3000))

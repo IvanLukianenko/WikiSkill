@@ -25,6 +25,6 @@ Run the **Gating and Rollback** step of the WikiSkill framework (arXiv:2608.2745
    - **REJECTED** (score ≤ R_best, ties included) → roll back immediately: `python3 .wikiskill/bin/wikiskill.py rollback <name>`. **Never revert any wiki change** — patterns, log.md, and the recorded rejection persist so the next proposal builds on them.
 4. Run each task's cleanup steps.
 
-**If the suite defines no VT-* tasks:** soft-gate instead — diff the skill against its latest snapshot (`.wikiskill/archive/<name>/`), adversarially self-review (does each instruction trace to a wiki pattern? could any misfire? is it concise?), fix findings, record with `--passed 1 --total 1 --note "soft review (no task suite)"`, and remind the user that real tasks in `.wikiskill/validation/tasks.md` enable hard gating.
+**If the suite defines no VT-* tasks:** first, when `auto_generate_validation` is enabled in config, try to harvest 1–3 tasks from consolidated traces (per the harvesting rules in `/wikiskill:consolidate` step 5) and, if you succeed, gate against them normally. Only when no trace yields an objectively checkable task, soft-gate instead — diff the skill against its latest snapshot (`.wikiskill/archive/<name>/`), adversarially self-review (does each instruction trace to a wiki pattern? could any misfire? is it concise?), fix findings, and record with `--passed 1 --total 1 --note "soft review (no task suite)"`.
 
 Finish with a one-paragraph report: score vs. R_best, verdict, and what happened to the skill.

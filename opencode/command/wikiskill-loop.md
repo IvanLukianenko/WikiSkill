@@ -8,8 +8,8 @@ in order:
 0. `python3 .wikiskill/bin/wikiskill.py status` — if R_best = 1.00, stop
    (early-stopped until harder validation tasks exist). If not baselined yet,
    first run the baseline per `/wikiskill-validate --baseline`.
-1. **Wiki Maintenance** — everything `/wikiskill-consolidate` specifies (skip
-   cleanly if nothing is pending).
+1. **Wiki Maintenance** — everything `/wikiskill-consolidate` specifies,
+   including validation-task harvesting (skip cleanly if nothing is pending).
 2. **Skill Proposal** — everything `/wikiskill-evolve` specifies; an honest
    no-action ends the iteration here.
 3. **Gating** — everything `/wikiskill-validate` specifies for the skill touched

@@ -52,10 +52,14 @@ programmatic scoring function 𝑓(ŷ, y). A development plugin has neither, so:
    ground-truth label per session, so `sample` classifies a trace as *failing* if
    it contains tool errors and *passing* otherwise — a heuristic stand-in for the
    paper's pass/fail stratification.
-2. **D_val is user-defined** (`validation/tasks.md`): representative tasks with
-   objective success criteria, executed by validator subagents that report
-   PASS/FAIL with evidence. With an empty suite the plugin degrades to a soft
-   self-review and says so, rather than pretending to measure.
+2. **D_val is user-defined or harvested** (`validation/tasks.md`):
+   representative tasks with objective success criteria, executed by validator
+   subagents that report PASS/FAIL with evidence. When the suite holds fewer
+   than 3 tasks, the loop harvests new ones from representative completed
+   traces (`auto_generate_validation`) — faithful in spirit to the paper, where
+   D_train and D_val come from the same task distribution. With no checkable
+   tasks at all, the plugin degrades to a soft self-review and says so, rather
+   than pretending to measure.
 3. **Skill provisioning** uses the host CLI's native skill loading rather than
    full prompt injection. The paper injects full skill content to eliminate
    retrieval failures as a confound (§3.2.1) — a study-design choice; in a real
@@ -64,9 +68,12 @@ programmatic scoring function 𝑓(ŷ, y). A development plugin has neither, so:
    in the paper because a harness applies them. Here the applying agent edits
    files directly; the prompts keep the same discipline (minimal targeted edits,
    full index rewrite, exact-substring replace targets).
-5. **One iteration per `/wikiskill:loop` run**, user-triggered, instead of K
-   automated iterations — the human decides cadence; the iteration counter,
-   early-stop rule, and per-iteration atomicity are preserved.
+5. **One iteration per `/wikiskill:loop` run** instead of K automated
+   iterations — the iteration counter, early-stop rule, and per-iteration
+   atomicity are preserved. Cadence is the human's by default, but the
+   auto-loop trigger (`auto_loop` with session-count and day thresholds,
+   checked by the SessionStart hook, plus the `loop-due` CLI check for cron)
+   can make iterations self-scheduling.
 6. The paper notes it lacks wiki pruning (Limitations); this plugin inherits
    that limitation and likewise leaves the wiki append-only.
 

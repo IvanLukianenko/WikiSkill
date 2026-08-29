@@ -78,13 +78,54 @@ Both tools can share one `.wikiskill/` workspace in the same repo.
 
 1. **Work normally.** Your sessions are the training rollouts; each leaves a
    trace in `.wikiskill/raw/traces/`.
-2. **Define validation** (once): add tasks with objective success criteria to
-   `.wikiskill/validation/tasks.md` — this suite is the paper's validation
-   split, and gating is only as good as it is. Without tasks, updates fall back
-   to a soft self-review.
-3. **Evolve periodically:** run `/wikiskill:loop` (Claude Code) or
-   `/wikiskill-loop` (opencode). One run = one iteration of Algorithm 1:
-   baseline (first time) → consolidate → propose → validate → gate.
+2. **Evolve periodically:** run `/wikiskill:loop` (Claude Code) or
+   `/wikiskill-loop` (opencode) — or let the auto-loop trigger below do the
+   asking. One run = one iteration of Algorithm 1: baseline (first time) →
+   consolidate → propose → validate → gate.
+3. **Validation suite** (`.wikiskill/validation/tasks.md`) — this is the
+   paper's validation split, and gating is only as good as it is. You can
+   author tasks by hand for the strongest gating, but you don't have to: while
+   the suite has fewer than 3 tasks, the loop **harvests tasks automatically**
+   from your real, completed sessions (self-contained prompt + objectively
+   checkable success criteria observed in the trace, marked "auto-generated";
+   disable via `auto_generate_validation: false`). With no tasks at all,
+   updates fall back to a soft self-review of the skill diff.
+
+## Automating the loop
+
+The plugin can drive the cadence itself — configured in `.wikiskill/config.json`:
+
+```jsonc
+"auto_loop": "suggest",      // "suggest" (default) | "auto" | "off"
+"loop_every_sessions": 5,    // due when >= N session traces are pending (0 = off)
+"loop_every_days": 3         // due when >= D days since the last loop AND >= 1 trace pending (0 = off)
+```
+
+The SessionStart hook checks both triggers at the start of every session
+(long-running sessions get caught by the day trigger at their *next* start):
+
+- **suggest** — when a loop is due, Claude briefly proposes running
+  `/wikiskill:loop` at the first natural moment; nothing runs uninvited.
+- **auto** — when due, Claude runs one full loop iteration by itself *after*
+  finishing your current request, then reports the outcome. Your task is never
+  interrupted or preceded by loop work.
+
+The counter resets whenever a loop actually does work (`mark-consolidated` /
+`record-validation` update `last_loop_at`); `python3 .wikiskill/bin/wikiskill.py
+status` shows the current due-state.
+
+For fully hands-off, calendar-based runs, schedule a headless loop with cron on
+the machine where you work (traces are local and git-ignored, so this must run
+where the traces live — not in CI):
+
+```cron
+0 9 * * * cd ~/your-project && python3 .wikiskill/bin/wikiskill.py loop-due && \
+  claude -p "/wikiskill:loop" --permission-mode acceptEdits \
+  --allowedTools "Bash" "Read" "Write" "Edit" "Glob" "Grep" "Task" >> ~/.wikiskill-cron.log 2>&1
+```
+
+`loop-due` exits 0 only when a loop is warranted, so the cron job is a no-op
+(and costs nothing) on quiet days.
 
 | Command (Claude Code / opencode) | Paper component |
 |---|---|

@@ -18,6 +18,12 @@ Act as the Wiki Maintainer of WikiSkill (arXiv:2608.27454 §3.2.2). First read
 4. Rewrite `wiki/index.md` in full — one line per pattern:
    `- [name](patterns/name.md): PROBLEM + ROOT CAUSE + FIX in one or two sentences.`
 5. Append a brief iteration entry to `wiki/log.md` (always, even with no changes).
-6. Mark sampled traces: `python3 .wikiskill/bin/wikiskill.py mark-consolidated <paths>`
-7. Report patterns created/updated and key root causes; suggest
-   `/wikiskill-evolve` if the wiki gained substantive knowledge.
+6. Harvest validation tasks (unless `auto_generate_validation` is false): if
+   `.wikiskill/validation/tasks.md` has fewer than 3 VT-* tasks, distill 1–3
+   from representative completed traces — self-contained prompt, objective
+   success criteria observed in the trace, cleanup — appended in VT-format with
+   `(auto-generated from session <id>)`. No secrets, no un-cleanable side
+   effects, no duplicates.
+7. Mark sampled traces: `python3 .wikiskill/bin/wikiskill.py mark-consolidated <paths>`
+8. Report patterns created/updated, tasks harvested, and key root causes;
+   suggest `/wikiskill-evolve` if the wiki gained substantive knowledge.
