@@ -19,7 +19,8 @@ run the suite in `.wikiskill/validation/tasks.md` with current skills, then
 2. Record and gate:
    `python3 .wikiskill/bin/wikiskill.py record-validation --skill <name> --passed <M> --total <N> --note "<context>"`
    (this appends the proposal diff + outcome to `wiki/skill-impact.md` and
-   advances the iteration).
+   advances the iteration). On a SUITE CHANGED refusal, re-anchor first with
+   `record-validation --baseline` on the full current suite, then re-gate.
 3. Obey the verdict: **ACCEPTED** → keep the skill, add a dated Evolution History
    line to its PURPOSE.md. **REJECTED** (ties included) → roll back now:
    `python3 .wikiskill/bin/wikiskill.py rollback <name>` — never revert wiki

@@ -43,8 +43,8 @@ flowchart LR
 Two paper-faithful details worth knowing: new sessions do **not** get the wiki
 injected (the paper's §5.1 ablation shows inference-time wiki access degrades
 evolved-skill quality — opt in via `inject_wiki_context` in config), and
-evolution early-stops when R_best reaches 1.0 until you add harder validation
-tasks.
+evolution pauses when R_best reaches 1.0 — but only until harvesting adds a
+new trace-derived validation task, which re-anchors R_best and resumes it.
 
 ## Install — Claude Code
 
@@ -92,12 +92,15 @@ Both tools can share one `.wikiskill/` workspace in the same repo.
    consolidate → propose → validate → gate.
 3. **Validation suite** (`.wikiskill/validation/tasks.md`) — this is the
    paper's validation split, and gating is only as good as it is. You can
-   author tasks by hand for the strongest gating, but you don't have to: while
-   the suite has fewer than 3 tasks, the loop **harvests tasks automatically**
-   from your real, completed sessions (self-contained prompt + objectively
-   checkable success criteria observed in the trace, marked "auto-generated";
-   disable via `auto_generate_validation: false`). With no tasks at all,
-   updates fall back to a soft self-review of the skill diff.
+   author tasks by hand, but you don't have to: **every** loop iteration
+   harvests new tasks from your real daily traces (failure-derived first —
+   tasks the current skills don't trivially pass are what give evolution
+   headroom; capped at ~12, marked "auto-generated"; disable via
+   `auto_generate_validation: false`). R_best is anchored to a suite
+   fingerprint: when harvesting changes the suite, the next loop re-baselines
+   automatically, so a small all-green suite can never freeze evolution at
+   R_best = 1.0. With no tasks at all, updates fall back to a soft
+   self-review of the skill diff.
 
 ## Automating the loop
 

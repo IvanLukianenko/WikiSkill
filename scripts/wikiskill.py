@@ -21,6 +21,7 @@ Stdlib only, Python 3.8+.
 
 import argparse
 import difflib
+import hashlib
 import json
 import os
 import shutil
@@ -183,7 +184,7 @@ Add tasks that represent the work this project's skills should make easier.
 
 Format — one task per section:
 
-## VT-1: <short name>
+## VT-<n>: <short name>
 - **Prompt:** <what to ask the agent to do, self-contained>
 - **Success criteria:** <objectively checkable outcome, e.g. "tests in X pass", "output contains Y", "file Z compiles">
 - **Cleanup:** <how to undo any side effects, or "none">
@@ -436,6 +437,28 @@ def cmd_snapshots(args):
 
 # ---------------------------------------------------------------- gating
 
+def suite_hash(root):
+    """Fingerprint of the validation suite: hash of the sorted VT-* headers.
+
+    R_best is a pass-rate and is only comparable across runs of the SAME
+    suite; when harvesting adds tasks, the stored hash no longer matches and
+    gating demands a fresh baseline (re-anchoring R_best on the new suite).
+    """
+    import re
+    path = os.path.join(root, "validation", "tasks.md")
+    headers = []
+    try:
+        with open(path, encoding="utf-8") as f:
+            headers = [line.strip() for line in f
+                       if re.match(r"^## VT-\d+", line.strip())]
+    except OSError:
+        pass
+    if not headers:
+        return "empty", 0
+    digest = hashlib.sha256("\n".join(sorted(headers)).encode("utf-8")).hexdigest()[:12]
+    return digest, len(headers)
+
+
 def read_tree(base):
     """Return {relpath: lines} for all text files under base ('' if missing)."""
     files = {}
@@ -512,9 +535,12 @@ def cmd_record_validation(args):
     os.makedirs(os.path.dirname(results), exist_ok=True)
 
     state["last_loop_at"] = now_iso()
+    shash, stasks = suite_hash(root)
     if args.baseline:
         state["best_score"] = score
+        state["suite_hash"] = shash
         entry["baseline"] = True
+        entry["suite_hash"] = shash
         with open(results, "a", encoding="utf-8") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
         log_event(state, "baseline", entry)
@@ -522,18 +548,29 @@ def cmd_record_validation(args):
         append_skill_impact(root, (
             f"\n## Baseline (before iteration {iteration})\n\n"
             f"- **Validation score (R_best init):** {args.passed}/{args.total} = {score:.2f}\n"
+            f"- **Suite:** {stasks} task(s), hash {shash}\n"
             f"- **Skills active:** {args.skill or '(current skill set)'}\n"
             f"- **Note:** {args.note or '-'}\n"))
-        msg = f"BASELINE: R_best initialized to {score:.2f} ({args.passed}/{args.total})."
+        msg = (f"BASELINE: R_best anchored to {score:.2f} ({args.passed}/{args.total}) "
+               f"on suite {shash} ({stasks} task(s)).")
         if score >= 1.0:
-            msg += (" Validation is already perfect — per the framework, evolution "
-                    "stops early; add harder validation tasks to make gating informative.")
+            msg += (" R_best is saturated at 1.0 on the current suite — evolution "
+                    "resumes automatically once harvesting adds new tasks "
+                    "(a suite change triggers a fresh baseline).")
         print(msg)
         return
 
     if not args.skill:
         print("error: --skill is required (the atomic proposal's target skill)", file=sys.stderr)
         sys.exit(2)
+    if stasks > 0 and state.get("suite_hash") != shash:
+        print(f"SUITE CHANGED: R_best {'' if best is None else f'({best:.2f}) '}was anchored on "
+              f"suite {state.get('suite_hash') or '(none)'}, but the current suite is {shash} "
+              f"({stasks} task(s)) — pass rates across different suites are not comparable. "
+              f"Re-anchor first: run the full suite with the current skill set and record "
+              f"`record-validation --baseline`, then validate the proposal against the new R_best.",
+              file=sys.stderr)
+        sys.exit(3)
     if best is None:
         print("warning: no baseline recorded; treating this run as the baseline. "
               "Run `record-validation --baseline` before the first evolution next time.",
@@ -568,8 +605,8 @@ def cmd_record_validation(args):
         print(f"ACCEPTED: '{args.skill}' scored {args.passed}/{args.total} ({score:.2f}) "
               f"> R_best {best:.2f}. R_best updated; keep the skill update.")
         if score >= 1.0:
-            print("R_best reached 1.0 — evolution loop terminates early (Alg. 1, line 4). "
-                  "Add harder validation tasks to continue evolving.")
+            print("R_best reached 1.0 on the current suite — evolution pauses (Alg. 1, "
+                  "line 4) until harvesting adds a new task, which re-anchors R_best.")
     else:
         print(f"REJECTED: '{args.skill}' scored {args.passed}/{args.total} ({score:.2f}) "
               f"<= R_best {best:.2f}. Roll back now: "
@@ -600,6 +637,11 @@ def cmd_status(args):
     print(f"  iteration: {state.get('iteration', 0)}   "
           f"R_best: {'not baselined yet' if best is None else f'{best:.2f}'}   "
           f"last loop: {state.get('last_loop_at', 'never')}")
+    shash, stasks = suite_hash(root)
+    changed = stasks > 0 and state.get("suite_hash") != shash
+    print(f"  validation suite: {stasks} task(s), hash {shash}"
+          + (" — CHANGED since baseline: re-baseline before gating "
+             "(this re-anchors R_best and unblocks evolution)" if changed else ""))
     cfg = load_config(root)
     due, reasons, _p = loop_due(root)
     print(f"  auto-loop: mode={cfg.get('auto_loop', 'suggest')} "
@@ -623,9 +665,10 @@ def cmd_status(args):
     if session_tokens:
         print(f"  traced sessions total: {session_tokens:,} token(s) "
               f"(in+out, from transcripts; cache reads excluded)")
-    if best is not None and best >= 1.0:
-        print("  NOTE: R_best is 1.0 — evolution is early-stopped until harder "
-              "validation tasks are added.")
+    if best is not None and best >= 1.0 and not changed:
+        print("  NOTE: R_best is saturated at 1.0 on the current suite — evolution "
+              "resumes as soon as harvesting adds a new task (the suite change "
+              "triggers a fresh baseline).")
     log = state.get("log", [])
     if log:
         print("  recent events:")
@@ -655,15 +698,18 @@ THE THREE LAYERS (never shortcut across them)
 
 ONE EVOLUTION ITERATION (/wikiskill:loop = Algorithm 1)
   consolidate  Wiki Maintainer distills sampled traces (<=5 failing +
-               <=3 passing) into wiki patterns; harvests validation tasks
-               from real sessions while the suite has < 3.
+               <=3 passing) into wiki patterns; continuously harvests
+               validation tasks from real sessions (failure-derived tasks
+               preferred — they keep gating challenging).
   evolve       Skill Proposer reads wiki + skill-impact + traces, makes ONE
                atomic change: create / patch / honest no-action. Never
                repeats a rejected diff.
   validate     The task suite (.wikiskill/validation/tasks.md) runs via
                validator agents. Accept iff score STRICTLY beats R_best;
-               otherwise automatic rollback. R_best = 1.0 => early stop
-               until harder tasks exist. The wiki survives either outcome.
+               otherwise automatic rollback. Pass rates are anchored to a
+               suite fingerprint: when harvesting changes the suite, a
+               fresh baseline re-anchors R_best — so a saturated 1.0 never
+               blocks evolution permanently. The wiki survives any outcome.
 
 AUTOMATION (config.json)
   auto_loop            "suggest" (default) nudges when a loop is due;

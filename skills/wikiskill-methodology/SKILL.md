@@ -64,11 +64,16 @@ Each skill directory contains exactly two authored files:
 
 ## Gating and rollback (Eq. 4)
 
-- R_best is initialized by a baseline validation run (`record-validation
-  --baseline`) and updated only on acceptance.
+- R_best is anchored by a baseline validation run (`record-validation
+  --baseline`) **on a specific suite** (fingerprinted by its VT headers) and
+  updated only on acceptance.
 - Accept iff score **strictly >** R_best. Ties and regressions are rejected →
   `rollback <name>` immediately. There is no "keep if unchanged".
-- R_best = 1.0 → evolution early-stops; harder validation tasks are needed.
+- Pass rates are only comparable within one suite: when harvesting changes the
+  suite, gating refuses (SUITE CHANGED) until a fresh baseline re-anchors
+  R_best on the new suite. Consequently R_best = 1.0 only pauses evolution
+  while the suite is unchanged — continuous, failure-derived task harvesting
+  is what keeps the loop alive indefinitely.
 - **The asymmetry is the core invariant:** rollback touches only the skill; the
   wiki — patterns, log, and the recorded rejection itself — is retained, so the
   next proposal builds on everything learned, including what failed.

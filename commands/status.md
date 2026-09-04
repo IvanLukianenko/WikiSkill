@@ -13,7 +13,8 @@ Present the status above in a short, readable summary and recommend the single m
 
 - Not initialized → `/wikiskill:init`.
 - R_best "not baselined yet" and validation tasks exist → `/wikiskill:validate --baseline`.
-- R_best = 1.00 → evolution is early-stopped; suggest adding harder tasks to `.wikiskill/validation/tasks.md`.
+- Suite "CHANGED since baseline" → `/wikiskill:validate --baseline` (re-anchors R_best on the new suite).
+- R_best = 1.00 with an unchanged suite → run `/wikiskill:loop`: its harvesting adds trace-derived tasks, which re-anchors R_best and unblocks evolution.
 - Pending traces ≥ 3 → `/wikiskill:consolidate` (or the full `/wikiskill:loop`).
 - Wiki grew since the last proposal (compare log.md against skill-impact.md) → `/wikiskill:evolve`.
 - A skill was snapshotted but `wiki/skill-impact.md` has no entry for it → `/wikiskill:validate <skill>`.
