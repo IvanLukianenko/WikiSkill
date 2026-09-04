@@ -151,6 +151,30 @@ where the traces live — not in CI):
 | `/wikiskill:help` / `-help` | Detailed how-it-works guide + where this project's loop currently stands |
 | `/wikiskill:skills [--all]` / `-skills` | Skill usage & usefulness report: invocations, sessions, errors after use, verdicts |
 
+### Suite lifecycle — why the task count doesn't grow forever
+
+The paper keeps its validation split fixed (10–40 tasks per benchmark, Table 6)
+and flags unbounded accumulation as an open problem only for the wiki
+(Limitations: "lacks an automated mechanism to prune the wiki"). Here tasks are
+harvested continuously, so the suite is **bounded and rotating** instead:
+
+- `validation_max_tasks` (default 12, the paper's range) caps the suite, so
+  every validation costs about the same;
+- every gating run records per-task outcomes (`record-validation --results`);
+  a task that passed `retire_after_passes` (3) times in a row is **saturated** —
+  it carries no information for gating any more;
+- `retire-saturated` (run by the loop when the suite is at cap) rotates
+  saturated tasks into `validation/retired.md`, keeping
+  `keep_regression_guards` (2) of them as always-green regression guards.
+  Nothing is deleted — a retired task can be moved back by hand;
+- `suite-report` shows each task's streak and verdict (NEW / INFORMATIVE /
+  SATURATED); retirement changes the suite fingerprint, so R_best is re-anchored
+  on the next loop as usual.
+
+Net effect: the suite converges to "a few regression guards + the currently
+hardest trace-derived tasks", which is exactly the D_val that gives evolution
+headroom at flat cost.
+
 ### Skill usage & usefulness statistics
 
 Knowing which evolved skills actually help is part of the loop, not an

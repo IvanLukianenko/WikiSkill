@@ -202,6 +202,9 @@ SEED_CONFIG = {
     "loop_every_sessions": 5,
     "loop_every_days": 3,
     "auto_generate_validation": True,
+    "validation_max_tasks": 12,
+    "retire_after_passes": 3,
+    "keep_regression_guards": 2,
     "agent_models": {"consolidator": "inherit", "evolver": "inherit", "validator": "inherit"},
     "inject_wiki_context": False,
     "session_context_max_chars": 3000,
@@ -459,6 +462,135 @@ def suite_hash(root):
     return digest, len(headers)
 
 
+def split_suite(text):
+    """Split tasks.md into (preamble, [(task_id, section_text), ...])."""
+    import re
+    parts = re.split(r"(?m)^(?=## VT-\d+)", text)
+    preamble, sections = parts[0], []
+    for sec in parts[1:]:
+        m = re.match(r"## (VT-\d+)", sec)
+        if m:
+            sections.append((m.group(1), sec))
+    return preamble, sections
+
+
+def task_streaks(state):
+    """Per-task consecutive-pass streak and run count from recorded results."""
+    out = {}
+    for tid, h in (state.get("task_history") or {}).items():
+        outcomes = h.get("outcomes") or []
+        streak = 0
+        for o in reversed(outcomes):
+            if o == "pass":
+                streak += 1
+            else:
+                break
+        out[tid] = {"streak": streak, "runs": len(outcomes),
+                    "last": outcomes[-1] if outcomes else None,
+                    "fails": outcomes.count("fail")}
+    return out
+
+
+def record_task_results(state, results):
+    """results: 'VT-1=pass,VT-2=fail' -> append to state.task_history."""
+    parsed = {}
+    for item in results.split(","):
+        item = item.strip()
+        if not item or "=" not in item:
+            continue
+        tid, outcome = item.split("=", 1)
+        outcome = outcome.strip().lower()
+        if outcome not in ("pass", "fail"):
+            continue
+        parsed[tid.strip()] = outcome
+    hist = state.setdefault("task_history", {})
+    for tid, outcome in parsed.items():
+        h = hist.setdefault(tid, {"outcomes": []})
+        h["outcomes"] = (h["outcomes"] + [outcome])[-20:]
+        h["last_run"] = now_iso()
+    return parsed
+
+
+def cmd_suite_report(args):
+    root = require_root()
+    cfg = load_config(root)
+    state = load_state(root)
+    path = os.path.join(root, "validation", "tasks.md")
+    try:
+        with open(path, encoding="utf-8") as f:
+            _pre, sections = split_suite(f.read())
+    except OSError:
+        sections = []
+    streaks = task_streaks(state)
+    cap = int(cfg.get("validation_max_tasks", 12))
+    retire_after = int(cfg.get("retire_after_passes", 3))
+    guards = int(cfg.get("keep_regression_guards", 2))
+    print(f"Validation suite: {len(sections)} task(s) (cap {cap}); retire after "
+          f"{retire_after} consecutive passes, keeping {guards} saturated regression guard(s).")
+    saturated = 0
+    for tid, sec in sections:
+        title = sec.splitlines()[0][3:].strip()
+        s = streaks.get(tid)
+        if not s or not s["runs"]:
+            verdict = "NEW (no recorded results)"
+        elif s["streak"] >= retire_after:
+            verdict = f"SATURATED (passed {s['streak']} in a row) — retirement candidate"
+            saturated += 1
+        elif s["fails"]:
+            verdict = f"INFORMATIVE ({s['fails']} fail(s) in {s['runs']} run(s), last {s['last']})"
+        else:
+            verdict = f"warming up ({s['streak']} pass(es) so far)"
+        print(f"  {title}\n    {verdict}")
+    print(f"Retirable now: {max(0, saturated - guards)} "
+          f"(`retire-saturated` moves them to validation/retired.md).")
+
+
+def cmd_retire_saturated(args):
+    root = require_root()
+    cfg = load_config(root)
+    state = load_state(root)
+    retire_after = int(cfg.get("retire_after_passes", 3))
+    guards = int(cfg.get("keep_regression_guards", 2))
+    path = os.path.join(root, "validation", "tasks.md")
+    with open(path, encoding="utf-8") as f:
+        preamble, sections = split_suite(f.read())
+    streaks = task_streaks(state)
+    saturated = [(tid, sec) for tid, sec in sections
+                 if streaks.get(tid, {}).get("streak", 0) >= retire_after]
+    # Keep the most-run saturated tasks as regression guards; retire the rest.
+    saturated.sort(key=lambda ts: -streaks[ts[0]]["runs"])
+    to_retire = saturated[guards:]
+    if args.max is not None:
+        to_retire = to_retire[:args.max]
+    if not to_retire:
+        print("nothing to retire (no saturated tasks beyond the regression guards)")
+        return
+    retire_ids = {tid for tid, _ in to_retire}
+    if args.dry_run:
+        print("would retire: " + ", ".join(tid for tid, _ in to_retire))
+        return
+    remaining = [sec for tid, sec in sections if tid not in retire_ids]
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(preamble + "".join(remaining))
+    retired_path = os.path.join(root, "validation", "retired.md")
+    if not os.path.exists(retired_path):
+        with open(retired_path, "w", encoding="utf-8") as f:
+            f.write("# Retired validation tasks\n\nTasks that became saturated (passed "
+                    "consecutively) and were rotated out to keep the suite informative and "
+                    "bounded. Kept for history; move a section back into tasks.md to "
+                    "reinstate it.\n")
+    with open(retired_path, "a", encoding="utf-8") as f:
+        for tid, sec in to_retire:
+            s = streaks[tid]
+            f.write(f"\n<!-- retired {now_iso()} after {s['streak']} consecutive passes -->\n{sec}")
+    log_event(state, "retire", {"tasks": sorted(retire_ids)})
+    save_json(state_path(root), state)
+    print(f"retired {len(to_retire)} saturated task(s) to validation/retired.md: "
+          + ", ".join(sorted(retire_ids)))
+    print("note: the suite changed — the next gating needs a fresh baseline "
+          "(the loop re-anchors R_best automatically).")
+
+
 def read_tree(base):
     """Return {relpath: lines} for all text files under base ('' if missing)."""
     files = {}
@@ -536,6 +668,14 @@ def cmd_record_validation(args):
 
     state["last_loop_at"] = now_iso()
     shash, stasks = suite_hash(root)
+    if args.results:
+        parsed = record_task_results(state, args.results)
+        entry["results"] = parsed
+        n_pass = sum(1 for v in parsed.values() if v == "pass")
+        if parsed and (n_pass != args.passed or len(parsed) != args.total):
+            print(f"warning: --results has {n_pass}/{len(parsed)} passes but "
+                  f"--passed/--total say {args.passed}/{args.total}; recording both as given.",
+                  file=sys.stderr)
     if args.baseline:
         state["best_score"] = score
         state["suite_hash"] = shash
@@ -637,12 +777,17 @@ def cmd_status(args):
     print(f"  iteration: {state.get('iteration', 0)}   "
           f"R_best: {'not baselined yet' if best is None else f'{best:.2f}'}   "
           f"last loop: {state.get('last_loop_at', 'never')}")
+    cfg = load_config(root)
     shash, stasks = suite_hash(root)
     changed = stasks > 0 and state.get("suite_hash") != shash
-    print(f"  validation suite: {stasks} task(s), hash {shash}"
+    retire_after = int(cfg.get("retire_after_passes", 3))
+    n_sat = sum(1 for s in task_streaks(state).values() if s["streak"] >= retire_after)
+    cap = int(cfg.get("validation_max_tasks", 12))
+    print(f"  validation suite: {stasks} task(s) (cap {cap}), hash {shash}"
+          + (f", {n_sat} saturated" if n_sat else "")
           + (" — CHANGED since baseline: re-baseline before gating "
-             "(this re-anchors R_best and unblocks evolution)" if changed else ""))
-    cfg = load_config(root)
+             "(this re-anchors R_best and unblocks evolution)" if changed else "")
+          + (" — at cap: `retire-saturated` before harvesting" if stasks >= cap else ""))
     due, reasons, _p = loop_due(root)
     print(f"  auto-loop: mode={cfg.get('auto_loop', 'suggest')} "
           f"every {cfg.get('loop_every_sessions', 5)} session(s) / "
@@ -719,6 +864,16 @@ ONE EVOLUTION ITERATION (/wikiskill:loop = Algorithm 1)
                suite fingerprint: when harvesting changes the suite, a
                fresh baseline re-anchors R_best — so a saturated 1.0 never
                blocks evolution permanently. The wiki survives any outcome.
+
+SUITE LIFECYCLE (bounded, rotating D_val)
+  The paper keeps D_val fixed (10-40 tasks); here tasks are harvested
+  continuously, so the suite is bounded instead: validation_max_tasks
+  (12). Per-task outcomes (record-validation --results) track pass
+  streaks; a task that passed retire_after_passes (3) times in a row is
+  SATURATED — it carries no gating information — and `retire-saturated`
+  rotates it into validation/retired.md, keeping keep_regression_guards
+  (2) saturated tasks as regression guards. Validation cost stays flat,
+  the suite stays informative, nothing is ever deleted.
 
 AUTOMATION (config.json)
   auto_loop            "suggest" (default) nudges when a loop is due;
@@ -998,7 +1153,22 @@ def main():
     p.add_argument("--note", default="")
     p.add_argument("--baseline", action="store_true",
                    help="initialize R_best from this run (no gating, no iteration bump)")
+    p.add_argument("--results", default="",
+                   help="per-task outcomes, e.g. 'VT-1=pass,VT-2=fail' (feeds suite "
+                        "lifecycle: saturation detection and retirement)")
     p.set_defaults(fn=cmd_record_validation)
+
+    p = sub.add_parser("suite-report",
+                       help="per-task pass streaks and lifecycle verdicts "
+                            "(NEW / INFORMATIVE / SATURATED)")
+    p.set_defaults(fn=cmd_suite_report)
+
+    p = sub.add_parser("retire-saturated",
+                       help="move saturated tasks (beyond the kept regression guards) "
+                            "from tasks.md to retired.md")
+    p.add_argument("--max", type=int, default=None, help="retire at most N tasks")
+    p.add_argument("--dry-run", action="store_true")
+    p.set_defaults(fn=cmd_retire_saturated)
 
     args = ap.parse_args()
     args.fn(args)
