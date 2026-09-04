@@ -76,6 +76,15 @@ programmatic scoring function 𝑓(ŷ, y). A development plugin has neither, so:
    can make iterations self-scheduling.
 6. The paper notes it lacks wiki pruning (Limitations); this plugin inherits
    that limitation and likewise leaves the wiki append-only.
+7. **Bounded, rotating D_val.** The paper's validation split is fixed
+   (10–40 tasks, Table 6), so it never faces suite growth; it does warn that
+   small validation sets add gating noise (App. B) and that unbounded
+   accumulation needs pruning (for the wiki). Because this plugin harvests
+   tasks continuously, the suite is capped (`validation_max_tasks`, default
+   12) and saturated tasks (N consecutive passes) are rotated into
+   `validation/retired.md`, keeping a few as regression guards — validation
+   cost stays flat and the suite stays informative. Retirement changes the
+   suite fingerprint, so R_best is re-anchored per adaptation 2.
 
 ## References
 

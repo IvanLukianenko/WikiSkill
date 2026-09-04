@@ -24,9 +24,13 @@ Act as the Wiki Maintainer of WikiSkill (arXiv:2608.27454 §3.2.2). First read
    trivially pass give evolution headroom), otherwise representative completed
    requests — self-contained prompt, objective success criteria observed in
    the trace, cleanup — appended with `(auto-generated from session <id>)`.
-   No secrets, no un-cleanable side effects, no semantic duplicates; stop at
-   ~12 tasks. A suite change means the next gating needs a fresh baseline —
-   the loop re-anchors automatically.
+   No secrets, no un-cleanable side effects, no semantic duplicates. The
+   suite is capped (`validation_max_tasks`): run `suite-report` first and,
+   at cap, `retire-saturated` (rotates tasks with `retire_after_passes`
+   consecutive passes into validation/retired.md, keeping
+   `keep_regression_guards`); still at cap → skip harvesting. A suite change
+   means the next gating needs a fresh baseline — the loop re-anchors
+   automatically.
 7. Mark sampled traces: `python3 .wikiskill/bin/wikiskill.py mark-consolidated <paths>`
 8. Report patterns created/updated, tasks harvested, and key root causes;
    suggest `/wikiskill-evolve` if the wiki gained substantive knowledge.
