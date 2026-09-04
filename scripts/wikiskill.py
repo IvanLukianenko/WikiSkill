@@ -230,7 +230,7 @@ def cmd_init(args):
     root = os.path.join(project, WIKISKILL_DIR)
     created = not os.path.isdir(root)
     for sub in (os.path.join("raw", "traces"), os.path.join("wiki", "patterns"),
-                "archive", "validation", "bin"):
+                "archive", "validation", "stats", "bin"):
         os.makedirs(os.path.join(root, sub), exist_ok=True)
 
     def seed(rel, content):
@@ -660,6 +660,15 @@ def cmd_status(args):
         by_phase = ", ".join(f"{k}={v:,}" for k, v in sorted(ts.get("by_phase", {}).items()))
         print(f"  evolution cost: {ts.get('total', 0):,} measured token(s) "
               f"across {ts['entries']} recorded run(s) ({by_phase})")
+    rows, _ts = skill_stats(root)
+    evolved_rows = [r for r in rows if r["evolved"]]
+    if evolved_rows:
+        used = [r for r in evolved_rows if r["invocations"]]
+        top = ", ".join(f"{r['skill']}×{r['invocations']}" for r in used[:3])
+        print(f"  skill usage: {sum(r['invocations'] for r in used)} invocation(s) of "
+              f"{len(used)}/{len(evolved_rows)} evolved skill(s)"
+              f"{' — top: ' + top if top else ''}; "
+              f"see `skill-stats` for usefulness verdicts")
     session_tokens = sum(
         (d.get("tokens") or {}).get("total", 0) for _, d in traces)
     if session_tokens:
@@ -734,6 +743,15 @@ TOKEN ACCOUNTING
   measured evolution work (subagent runs during loop phases) is recorded via
   `wikiskill.py record-tokens` into stats.jsonl. `status` shows totals, so
   you always see what skill evolution costs.
+
+SKILL USAGE & USEFULNESS
+  A PostToolUse(Skill) hook logs every skill invocation
+  (stats/skill-usage.jsonl); the Stop hook records, per session, how many
+  tool errors followed each skill's use. `wikiskill.py skill-stats` (or
+  /wikiskill:skills) turns that into per-skill verdicts — HELPFUL, SUSPECT
+  (errors keep following its use: patch candidate), UNUSED (never
+  triggered: retire or sharpen its description). The Wiki Maintainer and
+  Skill Proposer read these verdicts every iteration.
 """
 
 
@@ -773,6 +791,116 @@ def cmd_record_tokens(args):
     by_phase = ", ".join(f"{k}={v:,}" for k, v in sorted(ts["by_phase"].items()))
     print(f"recorded {args.tokens:,} token(s) for phase '{args.phase}'. "
           f"Evolution total: {ts['total']:,} ({by_phase})")
+
+
+def skill_stats(root):
+    """Aggregate skill usage (PostToolUse hook log) with per-session
+    usefulness signals (Stop hook digests) into one record per skill."""
+    stats = {}
+
+    def rec(name):
+        return stats.setdefault(name, {
+            "invocations": 0, "sessions": set(), "last_used": None,
+            "sessions_with_errors_after": 0, "sessions_clean_after": 0,
+            "errors_after_total": 0})
+
+    usage_path = os.path.join(root, "stats", "skill-usage.jsonl")
+    if os.path.exists(usage_path):
+        with open(usage_path, encoding="utf-8") as f:
+            for line in f:
+                try:
+                    e = json.loads(line)
+                except ValueError:
+                    continue
+                r = rec(e.get("skill", "?"))
+                r["invocations"] += 1
+                r["sessions"].add(e.get("session_id", "?"))
+                r["last_used"] = max(r["last_used"] or "", e.get("ts", ""))
+
+    for _path, d in iter_traces(root):
+        for name, s in (d.get("skills_used") or {}).items():
+            r = rec(name)
+            r["sessions"].add(d.get("session_id", "?"))
+            if not r["invocations"]:
+                r["invocations"] += int(s.get("invocations", 0))
+            if s.get("errors_after", 0):
+                r["sessions_with_errors_after"] += 1
+                r["errors_after_total"] += int(s.get("errors_after", 0))
+            else:
+                r["sessions_clean_after"] += 1
+
+    sdir = skills_dir(root)
+    evolved = set(os.listdir(sdir)) if os.path.isdir(sdir) else set()
+    state = load_state(root)
+    total_sessions = sum(1 for _ in iter_traces(root))
+    out = []
+    for name, r in stats.items():
+        judged = r["sessions_with_errors_after"] + r["sessions_clean_after"]
+        error_rate = (r["sessions_with_errors_after"] / judged) if judged else None
+        out.append({
+            "skill": name,
+            "evolved": name in evolved,
+            "invocations": r["invocations"],
+            "sessions": len(r["sessions"]),
+            "last_used": r["last_used"],
+            "sessions_with_errors_after": r["sessions_with_errors_after"],
+            "sessions_clean_after": r["sessions_clean_after"],
+            "error_rate_after_use": error_rate,
+            "snapshots": len(state.get("skills", {}).get(name, {}).get("snapshots", [])),
+        })
+    # Evolved skills that were never invoked are the clearest "not useful" signal.
+    for name in sorted(evolved - set(stats)):
+        out.append({"skill": name, "evolved": True, "invocations": 0, "sessions": 0,
+                    "last_used": None, "sessions_with_errors_after": 0,
+                    "sessions_clean_after": 0, "error_rate_after_use": None,
+                    "snapshots": len(state.get("skills", {}).get(name, {}).get("snapshots", []))})
+    out.sort(key=lambda r: (not r["evolved"], -r["invocations"], r["skill"]))
+    return out, total_sessions
+
+
+def verdict_for(r, total_sessions):
+    if r["invocations"] == 0:
+        return ("UNUSED — never invoked across "
+                f"{total_sessions} traced session(s); candidate for retirement or a sharper "
+                "description (trigger conditions)")
+    er = r["error_rate_after_use"]
+    if er is None:
+        return "no outcome data yet (sessions still open or not traced)"
+    if er >= 0.5 and (r["sessions_with_errors_after"] + r["sessions_clean_after"]) >= 2:
+        return (f"SUSPECT — errors followed its use in {er:.0%} of sessions; "
+                "prime candidate for a patch proposal (check traces for whether the "
+                "guidance misled)")
+    if er == 0 and r["sessions_clean_after"] >= 2:
+        return "HELPFUL — used repeatedly with no errors afterwards"
+    return "mixed / too little data — keep observing"
+
+
+def cmd_skill_stats(args):
+    root = require_root()
+    rows, total_sessions = skill_stats(root)
+    if args.json:
+        print(json.dumps({"total_sessions": total_sessions, "skills": rows},
+                         indent=2, ensure_ascii=False))
+        return
+    if not rows:
+        print("No skill usage recorded yet (the PostToolUse(Skill) hook records "
+              "every invocation from now on).")
+        return
+    shown = [r for r in rows if r["evolved"] or args.all]
+    print(f"Skill usage across {total_sessions} traced session(s)"
+          f"{'' if args.all else ' — evolved skills only (use --all to include plugin/other skills)'}:")
+    for r in shown:
+        er = r["error_rate_after_use"]
+        print(f"  {r['skill']}{'' if r['evolved'] else '  (not in skills_dir)'}")
+        print(f"    invocations={r['invocations']}  sessions={r['sessions']}  "
+              f"last_used={r['last_used'] or 'never'}  "
+              f"errors-after-use: {r['sessions_with_errors_after']} session(s) / "
+              f"clean: {r['sessions_clean_after']}"
+              f"{'' if er is None else f'  (error rate {er:.0%})'}")
+        print(f"    verdict: {verdict_for(r, total_sessions)}")
+    hidden = len(rows) - len(shown)
+    if hidden:
+        print(f"  (+{hidden} non-evolved skill(s) hidden; --all shows them)")
 
 
 def cmd_loop_due(args):
@@ -821,6 +949,14 @@ def main():
     p.add_argument("--tokens", type=int, required=True)
     p.add_argument("--note", default="")
     p.set_defaults(fn=cmd_record_tokens)
+
+    p = sub.add_parser("skill-stats",
+                       help="usage + usefulness report per skill (invocations, sessions, "
+                            "errors after use, verdict)")
+    p.add_argument("--all", action="store_true",
+                   help="include skills outside skills_dir (plugin skills etc.)")
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(fn=cmd_skill_stats)
 
     p = sub.add_parser("loop-due",
                        help="check whether an evolution loop is due "

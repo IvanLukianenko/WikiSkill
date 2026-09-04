@@ -126,6 +126,28 @@ export const WikiSkillPlugin = async ({ client, directory, worktree }) => {
     fs.renameSync(digestFile + ".tmp", digestFile)
   }
 
+  // Skill usage log (mirrors the Claude Code PostToolUse(Skill) hook): one
+  // line per skill invocation into .wikiskill/stats/skill-usage.jsonl.
+  const recordSkillUse = (input) => {
+    if (String(input?.tool || "").toLowerCase() !== "skill") return
+    const root = findRoot(projectDir)
+    if (!root) return
+    const args = input?.args || {}
+    const skill = String(args.name || args.skill || "").trim()
+    if (!skill) return
+    const iteration = (readJson(path.join(root, "state.json")) || {}).iteration ?? 0
+    const statsDir = path.join(root, "stats")
+    fs.mkdirSync(statsDir, { recursive: true })
+    const entry = {
+      ts: new Date().toISOString().replace(/\.\d+Z$/, "Z"),
+      session_id: String(input?.sessionID || "unknown"),
+      iteration,
+      skill,
+      args: "",
+    }
+    fs.appendFileSync(path.join(statsDir, "skill-usage.jsonl"), JSON.stringify(entry) + "\n")
+  }
+
   return {
     event: async ({ event }) => {
       try {
@@ -134,6 +156,13 @@ export const WikiSkillPlugin = async ({ client, directory, worktree }) => {
         }
       } catch {
         // Trace capture must never break the session.
+      }
+    },
+    "tool.execute.after": async (input, _output) => {
+      try {
+        recordSkillUse(input)
+      } catch {
+        // Usage logging must never break a tool call.
       }
     },
   }

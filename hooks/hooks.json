@@ -1,5 +1,5 @@
 {
-  "description": "WikiSkill hooks: capture execution traces on Stop (layer 1) and inject the persistent wiki on SessionStart (layer 2). Both no-op until the project runs /wikiskill:init.",
+  "description": "WikiSkill hooks: capture execution traces on Stop (Raw Layer), inject loop status on SessionStart, and record every skill invocation on PostToolUse(Skill) for usage/usefulness statistics. All no-op until the project runs /wikiskill:init.",
   "hooks": {
     "Stop": [
       {
@@ -19,6 +19,18 @@
             "type": "command",
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/session_start.py\"",
             "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/record_skill_use.py\"",
+            "timeout": 5
           }
         ]
       }

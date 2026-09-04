@@ -149,6 +149,28 @@ where the traces live — not in CI):
 | `/wikiskill:rollback <skill> [ts]` / `-rollback` | Skill-only rollback (Alg. 1 line 16; the wiki is retained) |
 | `/wikiskill:models [agent=model ...]` (Claude Code) | Per-project model choice for the evolution agents (see below) |
 | `/wikiskill:help` / `-help` | Detailed how-it-works guide + where this project's loop currently stands |
+| `/wikiskill:skills [--all]` / `-skills` | Skill usage & usefulness report: invocations, sessions, errors after use, verdicts |
+
+### Skill usage & usefulness statistics
+
+Knowing which evolved skills actually help is part of the loop, not an
+afterthought:
+
+- a **PostToolUse(Skill) hook** logs every skill invocation (skill, session,
+  iteration, args) to `.wikiskill/stats/skill-usage.jsonl` — opencode's
+  plugin does the same via `tool.execute.after`;
+- the **Stop hook** records, per session, which skills were invoked and how
+  many tool errors followed each one (`skills_used` in the trace digest);
+- `wikiskill.py skill-stats` / `/wikiskill:skills` merges both into
+  per-skill verdicts: **HELPFUL** (used repeatedly, clean afterwards),
+  **SUSPECT** (errors keep following its use → first patch candidate),
+  **UNUSED** (never triggered → sharpen its description or retire it).
+
+The Wiki Maintainer reads the report to judge "did skill guidance help or
+mislead" with data instead of guesswork, and the Skill Proposer uses it to
+prioritize: SUSPECT skills get patched first, UNUSED skills get their trigger
+conditions fixed. "Errors after use" is a correlation signal — the trace
+analysis decides.
 
 ### Token accounting
 
@@ -189,7 +211,8 @@ agents/                           subagents adapting the paper's Appendix E prom
                                   wikiskill-evolver (Skill Proposer, E.3),
                                   wikiskill-validator (per-task validation)
 skills/wikiskill-methodology/     the framework's rules as a skill (formats, loop, gating)
-hooks/hooks.json                  Stop → capture trace + raw log; SessionStart → status note
+hooks/hooks.json                  Stop → trace + raw log; SessionStart → status note;
+                                  PostToolUse(Skill) → skill usage log
 scripts/wikiskill.py              dependency-free outer-loop harness: init, stratified
                                   sampling, snapshots, R_best gating, skill-impact diffs
 scripts/capture_trace.py          Stop-hook implementation (Raw Layer writer)
