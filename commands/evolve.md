@@ -7,6 +7,7 @@ allowed-tools: Bash(python3:*), Read, Write, Edit, Glob, Grep, Task
 ## Context
 
 - Status: !`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/wikiskill.py" status`
+- Skill usage & usefulness: !`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/wikiskill.py" skill-stats`
 - Requested focus: "$ARGUMENTS"
 
 ## Your task
@@ -19,7 +20,7 @@ Workflow (in this order — read the wiki FIRST):
 2. Read `.wikiskill/wiki/skill-impact.md` to see what was tried before. It contains the diffs of rejected proposals — **do NOT repeat a rejected approach.**
 3. Read the specific pattern pages relevant to current failures, and the existing skills (each `SKILL.md` + `PURPOSE.md`) in the skills directory shown in the status output.
 4. Read execution traces on demand to confirm root causes: read at least 4 trace digests/raw logs under `.wikiskill/raw/traces/` (or all of them if fewer exist), targeting your exploration at the failures the patterns describe.
-5. Decide ONE of:
+5. Use the usage report to prioritize: a **SUSPECT** skill (errors keep following its use) is the first patch candidate — read the traces of those sessions to see how its guidance misled; an **UNUSED** skill usually has a description whose trigger conditions never match real requests — patching the frontmatter `description` (and When to Apply) is a legitimate atomic proposal; a **HELPFUL** skill should not be touched without wiki evidence. Then decide ONE of:
    - **patch** an existing skill — preferred when an existing skill is partially correct. Keep edits minimal and targeted (append / replace short specific sections), not a rewrite.
    - **create** a new skill — when no existing skill covers a documented, recurring pattern cluster.
    - **no action** — if the wiki holds nothing actionable beyond what skills encode, or everything actionable was already rejected. Say so honestly and stop (do not snapshot).

@@ -62,6 +62,9 @@ def parse_transcript(path):
     user_requests, errors, tools = [], [], {}
     last_assistant = ""
     tokens = {"input": 0, "output": 0, "cache_read": 0, "cache_creation": 0}
+    # Skill invocations (via the Skill tool) and how many tool errors followed
+    # each one — the per-session usefulness signal for `skill-stats`.
+    skills_used = {}
     with open(path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
@@ -109,10 +112,18 @@ def parse_transcript(path):
                 elif kind == "tool_use":
                     name = item.get("name", "?")
                     tools[name] = tools.get(name, 0) + 1
+                    if name == "Skill":
+                        skill = str((item.get("input") or {}).get("skill") or "").strip()
+                        if skill:
+                            rec_s = skills_used.setdefault(
+                                skill, {"invocations": 0, "errors_after": 0})
+                            rec_s["invocations"] += 1
                 elif kind == "tool_result" and item.get("is_error"):
                     errors.append(clip(text_of(item.get("content"))))
+                    for rec_s in skills_used.values():
+                        rec_s["errors_after"] += 1
     tokens["total"] = tokens["input"] + tokens["output"]
-    return user_requests, errors, tools, last_assistant, tokens
+    return user_requests, errors, tools, last_assistant, tokens, skills_used
 
 
 def copy_raw_log(transcript, dest, max_bytes):
@@ -159,9 +170,11 @@ def main():
 
     user_requests, errors, tools, last_assistant = [], [], {}, ""
     tokens = {"input": 0, "output": 0, "cache_read": 0, "cache_creation": 0, "total": 0}
+    skills_used = {}
     if transcript and os.path.exists(transcript):
         try:
-            user_requests, errors, tools, last_assistant, tokens = parse_transcript(transcript)
+            (user_requests, errors, tools, last_assistant,
+             tokens, skills_used) = parse_transcript(transcript)
         except OSError:
             pass
 
@@ -197,6 +210,7 @@ def main():
         "user_requests": user_requests[-MAX_ITEMS:],
         "tokens": tokens,
         "tools_used": tools,
+        "skills_used": skills_used,
         "errors": errors[-MAX_ITEMS:],
         "last_assistant_message": last_assistant,
         "consolidated": False,

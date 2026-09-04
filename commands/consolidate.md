@@ -6,6 +6,7 @@ allowed-tools: Bash(python3:*), Read, Write, Edit, Glob, Grep, Task
 ## Context
 
 - Stratified sample: !`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/wikiskill.py" sample`
+- Skill usage & usefulness: !`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/wikiskill.py" skill-stats`
 
 ## Your task
 
@@ -13,7 +14,7 @@ Act as the **Wiki Maintainer** of the WikiSkill framework (arXiv:2608.27454, §3
 
 You may delegate the trace analysis to the `wikiskill-consolidator` agent (pass it the sampled digest and raw-log paths) and apply its proposed wiki updates yourself.
 
-1. **Deep trace analysis (critical).** Read each sampled digest, and its raw log where the digest's errors are insufficient to determine a root cause (respect the character cap printed above). Read the agent's actual actions — what commands were issued; compare successful vs. failed sessions — what did successful ones do differently; identify ACTION PATTERNS and strategies, not just error messages; check whether active skills were followed and whether their guidance helped or misled.
+1. **Deep trace analysis (critical).** Read each sampled digest, and its raw log where the digest's errors are insufficient to determine a root cause (respect the character cap printed above). Read the agent's actual actions — what commands were issued; compare successful vs. failed sessions — what did successful ones do differently; identify ACTION PATTERNS and strategies, not just error messages; check whether active skills were followed and whether their guidance helped or misled — ground this in the skill usage report above (a skill's `skills_used` entry in a digest shows it was invoked and how many errors followed; a SUSPECT verdict means look at what went wrong right after the skill fired). Document skill-related findings as patterns too (e.g. "skill X's step 3 misleads when Y").
 2. **Update pattern pages** under `.wikiskill/wiki/patterns/` (one page per pattern, kebab-case):
    - Document BOTH failure patterns (what went wrong, root cause — WHY, not just WHAT — and how to avoid it) and success patterns (strategies that consistently lead to completion), with exact command sequences from the traces and concrete workarounds.
    - Do NOT create duplicates — update existing pages with new evidence instead, using minimal incremental edits (append evidence, replace refined text). Add an evidence line per sighting, e.g. `Evidence: Iter 2: session ab12cd | Iter 3: persists`.
