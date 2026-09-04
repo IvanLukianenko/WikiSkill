@@ -7,7 +7,7 @@ Add tasks that represent the work this project's skills should make easier.
 
 Format — one task per section:
 
-## VT-1: <short name>
+## VT-<n>: <short name>
 - **Prompt:** <what to ask the agent to do, self-contained>
 - **Success criteria:** <objectively checkable outcome, e.g. "tests in X pass", "output contains Y", "file Z compiles">
 - **Cleanup:** <how to undo any side effects, or "none">

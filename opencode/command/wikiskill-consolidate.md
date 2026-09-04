@@ -18,12 +18,15 @@ Act as the Wiki Maintainer of WikiSkill (arXiv:2608.27454 §3.2.2). First read
 4. Rewrite `wiki/index.md` in full — one line per pattern:
    `- [name](patterns/name.md): PROBLEM + ROOT CAUSE + FIX in one or two sentences.`
 5. Append a brief iteration entry to `wiki/log.md` (always, even with no changes).
-6. Harvest validation tasks (unless `auto_generate_validation` is false): if
-   `.wikiskill/validation/tasks.md` has fewer than 3 VT-* tasks, distill 1–3
-   from representative completed traces — self-contained prompt, objective
-   success criteria observed in the trace, cleanup — appended in VT-format with
-   `(auto-generated from session <id>)`. No secrets, no un-cleanable side
-   effects, no duplicates.
+6. Harvest validation tasks — every iteration (unless
+   `auto_generate_validation` is false): distill up to 2 new VT-* tasks from
+   the analyzed traces, failure-derived first (tasks the current skills don't
+   trivially pass give evolution headroom), otherwise representative completed
+   requests — self-contained prompt, objective success criteria observed in
+   the trace, cleanup — appended with `(auto-generated from session <id>)`.
+   No secrets, no un-cleanable side effects, no semantic duplicates; stop at
+   ~12 tasks. A suite change means the next gating needs a fresh baseline —
+   the loop re-anchors automatically.
 7. Mark sampled traces: `python3 .wikiskill/bin/wikiskill.py mark-consolidated <paths>`
 8. Report patterns created/updated, tasks harvested, and key root causes;
    suggest `/wikiskill-evolve` if the wiki gained substantive knowledge.

@@ -5,11 +5,17 @@ description: Run one iteration of the WikiSkill evolution loop (Algorithm 1)
 Execute one iteration of the WikiSkill loop (arXiv:2608.27454, Algorithm 1),
 in order:
 
-0. `python3 .wikiskill/bin/wikiskill.py status` — if R_best = 1.00, stop
-   (early-stopped until harder validation tasks exist). If not baselined yet,
-   first run the baseline per `/wikiskill-validate --baseline`.
+0. `python3 .wikiskill/bin/wikiskill.py status` — note R_best and the suite
+   state, but never stop before step 1: a saturated R_best = 1.00 is
+   unblocked by harvesting.
 1. **Wiki Maintenance** — everything `/wikiskill-consolidate` specifies,
-   including validation-task harvesting (skip cleanly if nothing is pending).
+   including per-iteration validation-task harvesting (skip cleanly if
+   nothing is pending).
+1b. Re-run status; if the suite CHANGED since baseline or is not baselined
+   yet, run the full suite with the current skills and record
+   `record-validation --baseline` — this re-anchors R_best on the new suite
+   (pass rates across different suites are not comparable). Stop here only
+   if R_best is 1.00 on an unchanged suite.
 2. **Skill Proposal** — everything `/wikiskill-evolve` specifies; an honest
    no-action ends the iteration here.
 3. **Gating** — everything `/wikiskill-validate` specifies for the skill touched
